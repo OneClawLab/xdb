@@ -44,11 +44,12 @@ export function registerFindCommand(program: Command): void {
     .option('-m, --match', 'Full-text search')
     .option('-w, --where <sql>', 'SQL WHERE clause for filtering')
     .option('-l, --limit <n>', 'Maximum number of results', '10')
+    .option('--json', 'Output as JSONL (machine-readable)')
     .action(
       async (
         collection: string,
         query: string | undefined,
-        opts: { similar?: boolean; match?: boolean; where?: string; limit: string },
+        opts: { similar?: boolean; match?: boolean; where?: string; limit: string; json?: boolean },
       ) => {
         try {
           await executeFind(getDataRoot(), collection, query, opts);
@@ -63,7 +64,7 @@ export async function executeFind(
   dataRoot: string,
   collection: string,
   query: string | undefined,
-  opts: { similar?: boolean; match?: boolean; where?: string; limit: string },
+  opts: { similar?: boolean; match?: boolean; where?: string; limit: string; json?: boolean },
 ): Promise<void> {
   // 1. Load collection meta
   const manager = new CollectionManager(dataRoot);
@@ -111,14 +112,44 @@ export async function executeFind(
       limit,
     });
 
-    // 6. Output results as JSONL (Req 6.3, 7.2, 10.2)
-    for (const result of results) {
-      const output: Record<string, unknown> = {
-        ...result.data,
-        _score: result._score,
-        _engine: result._engine,
-      };
-      process.stdout.write(JSON.stringify(output) + '\n');
+    // 6. Output results
+    if (results.length === 0) {
+      if (!opts.json) {
+        process.stderr.write('No results found.\n');
+      }
+      return;
+    }
+
+    if (opts.json) {
+      // JSONL output (Req 6.3, 7.2, 10.2)
+      for (const result of results) {
+        const output: Record<string, unknown> = {
+          ...result.data,
+          _score: result._score,
+          _engine: result._engine,
+        };
+        process.stdout.write(JSON.stringify(output) + '\n');
+      }
+    } else {
+      // Human-readable output
+      for (const result of results) {
+        const score = typeof result._score === 'number' ? ` (score: ${result._score.toFixed(4)})` : '';
+        const id = result.data.id ? `[${result.data.id}]` : '';
+        // Show a compact summary of the data
+        const dataKeys = Object.keys(result.data).filter((k) => k !== 'id');
+        const preview = dataKeys
+          .slice(0, 3)
+          .map((k) => {
+            const v = result.data[k];
+            const s = typeof v === 'string' ? v : JSON.stringify(v);
+            const truncated = s != null && s.length > 60 ? s.substring(0, 57) + '...' : s;
+            return `${k}=${truncated}`;
+          })
+          .join('  ');
+        const more = dataKeys.length > 3 ? `  (+${dataKeys.length - 3} more)` : '';
+        process.stdout.write(`${id}${score}  ${preview}${more}\n`);
+      }
+      process.stderr.write(`${results.length} result(s) found.\n`);
     }
   } finally {
     // 7. Close engines

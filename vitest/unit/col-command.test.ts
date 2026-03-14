@@ -67,13 +67,27 @@ function createTestColCommand(dataRoot: string) {
   col
     .command('list')
     .description('List all collections')
-    .action(async () => {
+    .option('--json', 'Output as JSON array')
+    .action(async (opts: { json?: boolean }) => {
       const { handleError } = await import('../../src/errors.js');
       try {
         const manager = new CollectionManager(dataRoot);
         const collections = await manager.list();
+
+        if (opts.json) {
+          process.stdout.write(JSON.stringify(collections) + '\n');
+          return;
+        }
+
+        if (collections.length === 0) {
+          process.stderr.write('No collections found.\n');
+          return;
+        }
+
         for (const info of collections) {
-          process.stdout.write(JSON.stringify(info) + '\n');
+          process.stdout.write(
+            `${info.name}  policy=${info.policy}  records=${info.recordCount}\n`,
+          );
         }
       } catch (err) {
         handleError(err);
@@ -233,7 +247,7 @@ describe('col subcommand', () => {
   });
 
   describe('col list', () => {
-    it('outputs nothing when no collections exist (Req 2.2)', async () => {
+    it('outputs human-readable message when no collections exist', async () => {
       const { program, captured, cleanup } = createTestColCommand(tmpDir);
       try {
         await program.parseAsync(['node', 'xdb', 'col', 'list']);
@@ -242,10 +256,23 @@ describe('col subcommand', () => {
       }
 
       expect(captured.stdout).toBe('');
+      expect(captured.stderr).toContain('No collections found');
       expect(captured.exitCode).toBeNull();
     });
 
-    it('outputs JSONL with collection info (Req 2.1)', async () => {
+    it('outputs empty JSON array with --json when no collections exist', async () => {
+      const { program, captured, cleanup } = createTestColCommand(tmpDir);
+      try {
+        await program.parseAsync(['node', 'xdb', 'col', 'list', '--json']);
+      } finally {
+        cleanup();
+      }
+
+      expect(JSON.parse(captured.stdout.trim())).toEqual([]);
+      expect(captured.exitCode).toBeNull();
+    });
+
+    it('outputs human-readable list with collection info', async () => {
       const manager = new CollectionManager(tmpDir);
       const registry = new PolicyRegistry();
       await manager.init('col-a', registry.resolve('hybrid'));
@@ -260,8 +287,31 @@ describe('col subcommand', () => {
 
       const lines = captured.stdout.trim().split('\n');
       expect(lines).toHaveLength(2);
+      // Each line should contain the collection name and policy
+      const combined = lines.join('\n');
+      expect(combined).toContain('col-a');
+      expect(combined).toContain('col-b');
+      expect(combined).toContain('policy=');
+      expect(combined).toContain('records=');
+    });
 
-      const parsed = lines.map((l) => JSON.parse(l));
+    it('outputs JSON array with --json (Req 2.1)', async () => {
+      const manager = new CollectionManager(tmpDir);
+      const registry = new PolicyRegistry();
+      await manager.init('col-a', registry.resolve('hybrid'));
+      await manager.init('col-b', registry.resolve('relational'));
+
+      const { program, captured, cleanup } = createTestColCommand(tmpDir);
+      try {
+        await program.parseAsync(['node', 'xdb', 'col', 'list', '--json']);
+      } finally {
+        cleanup();
+      }
+
+      const parsed = JSON.parse(captured.stdout.trim());
+      expect(Array.isArray(parsed)).toBe(true);
+      expect(parsed).toHaveLength(2);
+
       const names = parsed.map((p: { name: string }) => p.name).sort();
       expect(names).toEqual(['col-a', 'col-b']);
 
@@ -273,23 +323,22 @@ describe('col subcommand', () => {
       }
     });
 
-    it('each output line is valid JSONL', async () => {
+    it('--json output for single collection has correct policy', async () => {
       const manager = new CollectionManager(tmpDir);
       const registry = new PolicyRegistry();
       await manager.init('single', registry.resolve('vector'));
 
       const { program, captured, cleanup } = createTestColCommand(tmpDir);
       try {
-        await program.parseAsync(['node', 'xdb', 'col', 'list']);
+        await program.parseAsync(['node', 'xdb', 'col', 'list', '--json']);
       } finally {
         cleanup();
       }
 
-      const lines = captured.stdout.trim().split('\n');
-      expect(lines).toHaveLength(1);
-      const obj = JSON.parse(lines[0]);
-      expect(obj.name).toBe('single');
-      expect(obj.policy).toBe('vector/feature-store');
+      const parsed = JSON.parse(captured.stdout.trim());
+      expect(parsed).toHaveLength(1);
+      expect(parsed[0].name).toBe('single');
+      expect(parsed[0].policy).toBe('vector/feature-store');
     });
   });
 

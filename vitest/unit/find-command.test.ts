@@ -54,6 +54,7 @@ describe('find command', () => {
         await executeFind(tmpDir, 'logs', undefined, {
           where: "json_extract(data, '$.level') = 'info'",
           limit: '10',
+          json: true,
         });
       } finally {
         stdoutSpy.mockRestore();
@@ -87,6 +88,7 @@ describe('find command', () => {
         await executeFind(tmpDir, 'many', undefined, {
           where: '1=1',
           limit: '5',
+          json: true,
         });
       } finally {
         stdoutSpy.mockRestore();
@@ -114,6 +116,7 @@ describe('find command', () => {
         await executeFind(tmpDir, 'default-limit', undefined, {
           where: '1=1',
           limit: '10',
+          json: true,
         });
       } finally {
         stdoutSpy.mockRestore();
@@ -205,6 +208,7 @@ describe('find command', () => {
         await executeFind(tmpDir, 'kb', 'JavaScript', {
           match: true,
           limit: '10',
+          json: true,
         });
       } finally {
         stdoutSpy.mockRestore();
@@ -250,6 +254,7 @@ describe('find command', () => {
           match: true,
           where: "json_extract(data, '$.id') = 'd1'",
           limit: '10',
+          json: true,
         });
       } finally {
         stdoutSpy.mockRestore();
@@ -266,7 +271,7 @@ describe('find command', () => {
   });
 
   describe('JSONL output format (Req 6.3, 10.2)', () => {
-    it('each output line is valid JSON with _score and _engine', async () => {
+    it('each output line is valid JSON with _score and _engine when --json', async () => {
       await seedRelationalCollection('fmt', [
         { id: 'r1', name: 'alice' },
         { id: 'r2', name: 'bob' },
@@ -282,6 +287,7 @@ describe('find command', () => {
         await executeFind(tmpDir, 'fmt', undefined, {
           where: '1=1',
           limit: '10',
+          json: true,
         });
       } finally {
         stdoutSpy.mockRestore();

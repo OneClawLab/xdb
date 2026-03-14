@@ -58,9 +58,10 @@ export function registerPutCommand(program: Command): void {
     .command('put <collection> [json]')
     .description('Write data to a collection')
     .option('--batch', 'Enable batch write mode for JSONL stdin input')
-    .action(async (collection: string, json: string | undefined, opts: { batch?: boolean }) => {
+    .option('--json', 'Output stats as JSON (batch mode)')
+    .action(async (collection: string, json: string | undefined, opts: { batch?: boolean; json?: boolean }) => {
       try {
-        await executePut(getDataRoot(), collection, json, !!opts.batch);
+        await executePut(getDataRoot(), collection, json, !!opts.batch, !!opts.json);
       } catch (err) {
         handleError(err);
       }
@@ -72,6 +73,7 @@ export async function executePut(
   collection: string,
   json: string | undefined,
   batch: boolean,
+  jsonOutput: boolean = false,
 ): Promise<void> {
   // 1. Load collection meta
   const manager = new CollectionManager(dataRoot);
@@ -125,11 +127,16 @@ export async function executePut(
     // 5. Write data
     if (batch) {
       const stats = await writer.writeBatch(records);
-      process.stdout.write(JSON.stringify(stats) + '\n');
+      if (jsonOutput) {
+        process.stdout.write(JSON.stringify(stats) + '\n');
+      } else {
+        process.stderr.write(`Batch complete: ${stats.inserted} inserted, ${stats.updated} updated, ${stats.errors} errors\n`);
+      }
     } else {
       for (const record of records) {
         await writer.write(record);
       }
+      process.stderr.write(`${records.length} record(s) written to "${collection}"\n`);
     }
   } finally {
     // 6. Close engines

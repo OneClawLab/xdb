@@ -136,7 +136,7 @@ describe('put command', () => {
       });
 
       try {
-        await executePut(tmpDir, 'batch-col', '{"id":"b1","msg":"batch1"}', true);
+        await executePut(tmpDir, 'batch-col', '{"id":"b1","msg":"batch1"}', true, true);
       } finally {
         stdoutSpy.mockRestore();
       }
@@ -213,7 +213,7 @@ describe('put command', () => {
       });
 
       try {
-        await executePut(tmpDir, 'stats-col', '{"id":"s1","msg":"first"}', true);
+        await executePut(tmpDir, 'stats-col', '{"id":"s1","msg":"first"}', true, true);
       } finally {
         stdoutSpy.mockRestore();
       }

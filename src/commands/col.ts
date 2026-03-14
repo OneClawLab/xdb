@@ -9,6 +9,13 @@ function getDataRoot(): string {
   return join(homedir(), '.local', 'share', 'xdb');
 }
 
+/** Format bytes into a human-readable string */
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 export function registerColCommands(col: Command): void {
   col
     .command('init <name>')
@@ -30,6 +37,7 @@ export function registerColCommands(col: Command): void {
         registry.validate(config);
         const manager = new CollectionManager(getDataRoot());
         await manager.init(name, config);
+        process.stderr.write(`Collection "${name}" created (policy: ${config.main}/${config.minor})\n`);
       } catch (err) {
         handleError(err);
       }
@@ -38,12 +46,28 @@ export function registerColCommands(col: Command): void {
   col
     .command('list')
     .description('List all collections')
-    .action(async () => {
+    .option('--json', 'Output as JSON array')
+    .action(async (opts: { json?: boolean }) => {
       try {
         const manager = new CollectionManager(getDataRoot());
         const collections = await manager.list();
+
+        if (opts.json) {
+          process.stdout.write(JSON.stringify(collections) + '\n');
+          return;
+        }
+
+        // Human-readable output
+        if (collections.length === 0) {
+          process.stderr.write('No collections found.\n');
+          return;
+        }
+
         for (const info of collections) {
-          process.stdout.write(JSON.stringify(info) + '\n');
+          const dim = info.embeddingDimension ? `, dim=${info.embeddingDimension}` : '';
+          process.stdout.write(
+            `${info.name}  policy=${info.policy}  records=${info.recordCount}  size=${formatBytes(info.sizeBytes)}${dim}\n`,
+          );
         }
       } catch (err) {
         handleError(err);
@@ -57,6 +81,7 @@ export function registerColCommands(col: Command): void {
       try {
         const manager = new CollectionManager(getDataRoot());
         await manager.remove(name);
+        process.stderr.write(`Collection "${name}" removed.\n`);
       } catch (err) {
         handleError(err);
       }
