@@ -3,6 +3,16 @@ import { registerColCommands } from './commands/col.js';
 import { registerPutCommand } from './commands/put.js';
 import { registerFindCommand } from './commands/find.js';
 
+// Gracefully handle EPIPE (broken pipe, e.g. `xdb ... | head`)
+process.stdout.on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EPIPE') process.exit(0);
+  throw err;
+});
+process.stderr.on('error', (err: NodeJS.ErrnoException) => {
+  if (err.code === 'EPIPE') process.exit(0);
+  throw err;
+});
+
 const program = new Command();
 
 program
