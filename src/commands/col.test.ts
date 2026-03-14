@@ -1,0 +1,337 @@
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { mkdtemp, rm, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { Command } from 'commander';
+import { CollectionManager } from '../collection-manager.js';
+import { PolicyRegistry } from '../policy-registry.js';
+import type { PolicyConfig } from '../policy-registry.js';
+
+/**
+ * Helper: create a col command tree wired to a temp dataRoot.
+ * We replicate the registerColCommands logic but inject a custom dataRoot
+ * and capture process.exit / stderr / stdout for assertions.
+ */
+function createTestColCommand(dataRoot: string) {
+  const captured = {
+    stdout: '' as string,
+    stderr: '' as string,
+    exitCode: null as number | null,
+  };
+
+  // Stub process.stdout.write, process.stderr.write, process.exit
+  const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
+    captured.stdout += String(chunk);
+    return true;
+  });
+  const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation((chunk: string | Uint8Array) => {
+    captured.stderr += String(chunk);
+    return true;
+  });
+  const exitSpy = vi.spyOn(process, 'exit').mockImplementation((code?: number | string | null | undefined) => {
+    captured.exitCode = typeof code === 'number' ? code : 0;
+    throw new Error(`process.exit(${code})`);
+  });
+
+  const program = new Command();
+  program.exitOverride(); // throw on commander errors instead of process.exit
+
+  const col = program.command('col').description('Manage collections');
+
+  // Wire up col commands with injected dataRoot
+  col
+    .command('init <name>')
+    .description('Initialize a new collection')
+    .requiredOption('--policy <policy>', 'Policy name (main/minor format)')
+    .option('--params <json>', 'Custom parameters as JSON to override policy defaults')
+    .action(async (name: string, opts: { policy: string; params?: string }) => {
+      const { handleError, PARAMETER_ERROR, XDBError } = await import('../errors.js');
+      try {
+        const registry = new PolicyRegistry();
+        let params: Record<string, unknown> | undefined;
+        if (opts.params) {
+          try {
+            params = JSON.parse(opts.params) as Record<string, unknown>;
+          } catch {
+            throw new XDBError(PARAMETER_ERROR, `Invalid JSON for --params: ${opts.params}`);
+          }
+        }
+        const config = registry.resolve(opts.policy, params);
+        registry.validate(config);
+        const manager = new CollectionManager(dataRoot);
+        await manager.init(name, config);
+      } catch (err) {
+        handleError(err);
+      }
+    });
+
+  col
+    .command('list')
+    .description('List all collections')
+    .action(async () => {
+      const { handleError } = await import('../errors.js');
+      try {
+        const manager = new CollectionManager(dataRoot);
+        const collections = await manager.list();
+        for (const info of collections) {
+          process.stdout.write(JSON.stringify(info) + '\n');
+        }
+      } catch (err) {
+        handleError(err);
+      }
+    });
+
+  col
+    .command('rm <name>')
+    .description('Remove a collection')
+    .action(async (name: string) => {
+      const { handleError } = await import('../errors.js');
+      try {
+        const manager = new CollectionManager(dataRoot);
+        await manager.remove(name);
+      } catch (err) {
+        handleError(err);
+      }
+    });
+
+  return { program, captured, cleanup: () => { stdoutSpy.mockRestore(); stderrSpy.mockRestore(); exitSpy.mockRestore(); } };
+}
+
+describe('col subcommand', () => {
+  let tmpDir: string;
+
+  beforeEach(async () => {
+    tmpDir = await mkdtemp(join(tmpdir(), 'xdb-col-test-'));
+  });
+
+  afterEach(async () => {
+    await rm(tmpDir, { recursive: true, force: true });
+  });
+
+  describe('col init', () => {
+    it('creates a collection with a valid policy (Req 1.1)', async () => {
+      const { program, captured, cleanup } = createTestColCommand(tmpDir);
+      try {
+        await program.parseAsync(['node', 'xdb', 'col', 'init', 'my-col', '--policy', 'hybrid']);
+      } finally {
+        cleanup();
+      }
+
+      // Verify collection was created
+      const manager = new CollectionManager(tmpDir);
+      expect(await manager.exists('my-col')).toBe(true);
+
+      const meta = await manager.load('my-col');
+      expect(meta.policy.main).toBe('hybrid');
+      expect(meta.policy.minor).toBe('knowledge-base');
+      expect(captured.exitCode).toBeNull();
+    });
+
+    it('creates a collection with full main/minor policy name', async () => {
+      const { program, captured, cleanup } = createTestColCommand(tmpDir);
+      try {
+        await program.parseAsync(['node', 'xdb', 'col', 'init', 'test-col', '--policy', 'relational/simple-kv']);
+      } finally {
+        cleanup();
+      }
+
+      const manager = new CollectionManager(tmpDir);
+      const meta = await manager.load('test-col');
+      expect(meta.policy.main).toBe('relational');
+      expect(meta.policy.minor).toBe('simple-kv');
+      expect(captured.exitCode).toBeNull();
+    });
+
+    it('merges --params into policy snapshot (Req 1.2)', async () => {
+      const { program, captured, cleanup } = createTestColCommand(tmpDir);
+      const params = JSON.stringify({ fields: { summary: { findCaps: ['match'] } } });
+      try {
+        await program.parseAsync(['node', 'xdb', 'col', 'init', 'param-col', '--policy', 'hybrid', '--params', params]);
+      } finally {
+        cleanup();
+      }
+
+      const manager = new CollectionManager(tmpDir);
+      const meta = await manager.load('param-col');
+      expect(meta.policy.fields.summary).toEqual({ findCaps: ['match'] });
+      // Original field should still be there
+      expect(meta.policy.fields.content).toEqual({ findCaps: ['similar', 'match'] });
+      expect(captured.exitCode).toBeNull();
+    });
+
+    it('exits with code 1 when --policy is missing (Req 1.3)', async () => {
+      const { program, cleanup } = createTestColCommand(tmpDir);
+      try {
+        await program.parseAsync(['node', 'xdb', 'col', 'init', 'no-policy']);
+        expect.fail('Should have thrown');
+      } catch (e) {
+        // Commander throws CommanderError when requiredOption is missing
+        expect((e as Error).message).toBeTruthy();
+      } finally {
+        cleanup();
+      }
+    });
+
+    it('exits with code 1 when policy name is unknown (Req 1.4)', async () => {
+      const { program, captured, cleanup } = createTestColCommand(tmpDir);
+      try {
+        await program.parseAsync(['node', 'xdb', 'col', 'init', 'bad-pol', '--policy', 'nonexistent']);
+      } catch {
+        // handleError calls process.exit which throws
+      } finally {
+        cleanup();
+      }
+
+      expect(captured.exitCode).toBe(1);
+      expect(captured.stderr).toContain('Unknown policy');
+      expect(captured.stderr).toContain('Available policies');
+    });
+
+    it('exits with code 1 when collection already exists (Req 1.5)', async () => {
+      const { program: p1, cleanup: c1 } = createTestColCommand(tmpDir);
+      try {
+        await p1.parseAsync(['node', 'xdb', 'col', 'init', 'dup', '--policy', 'hybrid']);
+      } finally {
+        c1();
+      }
+
+      const { program: p2, captured: cap2, cleanup: c2 } = createTestColCommand(tmpDir);
+      try {
+        await p2.parseAsync(['node', 'xdb', 'col', 'init', 'dup', '--policy', 'hybrid']);
+      } catch {
+        // handleError calls process.exit
+      } finally {
+        c2();
+      }
+
+      expect(cap2.exitCode).toBe(1);
+      expect(cap2.stderr).toContain('already exists');
+    });
+
+    it('exits with code 1 when --params has invalid JSON', async () => {
+      const { program, captured, cleanup } = createTestColCommand(tmpDir);
+      try {
+        await program.parseAsync(['node', 'xdb', 'col', 'init', 'bad-json', '--policy', 'hybrid', '--params', '{bad}']);
+      } catch {
+        // handleError calls process.exit
+      } finally {
+        cleanup();
+      }
+
+      expect(captured.exitCode).toBe(1);
+      expect(captured.stderr).toContain('Invalid JSON');
+    });
+
+    it('exits with code 1 when findCaps conflict with engine type (Req 9.11)', async () => {
+      const params = JSON.stringify({ fields: { vec: { findCaps: ['similar'] } } });
+      const { program, captured, cleanup } = createTestColCommand(tmpDir);
+      try {
+        await program.parseAsync(['node', 'xdb', 'col', 'init', 'conflict', '--policy', 'relational', '--params', params]);
+      } catch {
+        // handleError calls process.exit
+      } finally {
+        cleanup();
+      }
+
+      expect(captured.exitCode).toBe(1);
+      expect(captured.stderr).toContain('similar');
+      expect(captured.stderr).toContain('relational');
+    });
+  });
+
+  describe('col list', () => {
+    it('outputs nothing when no collections exist (Req 2.2)', async () => {
+      const { program, captured, cleanup } = createTestColCommand(tmpDir);
+      try {
+        await program.parseAsync(['node', 'xdb', 'col', 'list']);
+      } finally {
+        cleanup();
+      }
+
+      expect(captured.stdout).toBe('');
+      expect(captured.exitCode).toBeNull();
+    });
+
+    it('outputs JSONL with collection info (Req 2.1)', async () => {
+      // Create collections first
+      const manager = new CollectionManager(tmpDir);
+      const registry = new PolicyRegistry();
+      await manager.init('col-a', registry.resolve('hybrid'));
+      await manager.init('col-b', registry.resolve('relational'));
+
+      const { program, captured, cleanup } = createTestColCommand(tmpDir);
+      try {
+        await program.parseAsync(['node', 'xdb', 'col', 'list']);
+      } finally {
+        cleanup();
+      }
+
+      const lines = captured.stdout.trim().split('\n');
+      expect(lines).toHaveLength(2);
+
+      const parsed = lines.map((l) => JSON.parse(l));
+      const names = parsed.map((p: { name: string }) => p.name).sort();
+      expect(names).toEqual(['col-a', 'col-b']);
+
+      // Each line should be valid JSON with expected fields
+      for (const item of parsed) {
+        expect(item).toHaveProperty('name');
+        expect(item).toHaveProperty('policy');
+        expect(item).toHaveProperty('recordCount');
+        expect(item).toHaveProperty('sizeBytes');
+      }
+    });
+
+    it('each output line is valid JSONL', async () => {
+      const manager = new CollectionManager(tmpDir);
+      const registry = new PolicyRegistry();
+      await manager.init('single', registry.resolve('vector'));
+
+      const { program, captured, cleanup } = createTestColCommand(tmpDir);
+      try {
+        await program.parseAsync(['node', 'xdb', 'col', 'list']);
+      } finally {
+        cleanup();
+      }
+
+      const lines = captured.stdout.trim().split('\n');
+      expect(lines).toHaveLength(1);
+      const obj = JSON.parse(lines[0]);
+      expect(obj.name).toBe('single');
+      expect(obj.policy).toBe('vector/feature-store');
+    });
+  });
+
+  describe('col rm', () => {
+    it('removes an existing collection (Req 3.1)', async () => {
+      const manager = new CollectionManager(tmpDir);
+      const registry = new PolicyRegistry();
+      await manager.init('to-remove', registry.resolve('hybrid'));
+      expect(await manager.exists('to-remove')).toBe(true);
+
+      const { program, captured, cleanup } = createTestColCommand(tmpDir);
+      try {
+        await program.parseAsync(['node', 'xdb', 'col', 'rm', 'to-remove']);
+      } finally {
+        cleanup();
+      }
+
+      expect(await manager.exists('to-remove')).toBe(false);
+      expect(captured.exitCode).toBeNull();
+    });
+
+    it('exits with code 1 when collection does not exist (Req 3.2)', async () => {
+      const { program, captured, cleanup } = createTestColCommand(tmpDir);
+      try {
+        await program.parseAsync(['node', 'xdb', 'col', 'rm', 'ghost']);
+      } catch {
+        // handleError calls process.exit
+      } finally {
+        cleanup();
+      }
+
+      expect(captured.exitCode).toBe(1);
+      expect(captured.stderr).toContain('does not exist');
+    });
+  });
+});

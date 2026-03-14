@@ -1,0 +1,28 @@
+{
+  "name": "xdb",
+  "version": "0.1.0",
+  "description": "Intent-driven data hub CLI for AI agents",
+  "type": "module",
+  "bin": {
+    "xdb": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@lancedb/lancedb": "^0.15.0",
+    "better-sqlite3": "^11.8.1",
+    "commander": "^13.1.0",
+    "uuid": "^11.1.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/uuid": "^10.0.0",
+    "fast-check": "^4.1.1",
+    "tsup": "^8.5.0",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.1"
+  }
+}

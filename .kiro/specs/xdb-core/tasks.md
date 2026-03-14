@@ -6,21 +6,21 @@
 
 ## Tasks
 
-- [ ] 1. 项目初始化与基础设施
-  - [ ] 1.1 初始化 TypeScript 项目结构
+- [x] 1. 项目初始化与基础设施
+  - [x] 1.1 初始化 TypeScript 项目结构
     - 创建 `package.json`、`tsconfig.json`、`tsup.config.ts`
     - 安装依赖：`commander`、`@lancedb/lancedb`、`better-sqlite3`、`uuid`
     - 安装开发依赖：`typescript`、`tsup`、`vitest`、`fast-check`、`@types/better-sqlite3`、`@types/uuid`
     - 创建 `src/cli.ts` 入口文件，注册 `col`、`put`、`find` 子命令骨架
     - _Requirements: 10.3_
-  - [ ] 1.2 实现错误处理基础模块 (`src/errors.ts`)
+  - [x] 1.2 实现错误处理基础模块 (`src/errors.ts`)
     - 定义 `XDBError` 类，包含 `exitCode` 和 `message`
     - 定义错误类型常量：`PARAMETER_ERROR(1)`、`RUNTIME_ERROR(2)`
     - 实现统一的错误输出函数（写入 stderr）
     - _Requirements: 10.3_
 
 - [ ] 2. PolicyRegistry 与 CollectionManager
-  - [ ] 2.1 实现 PolicyRegistry (`src/policy-registry.ts`)
+  - [x] 2.1 实现 PolicyRegistry (`src/policy-registry.ts`)
     - 定义 `PolicyConfig`、`FieldConfig` 接口
     - 实现内置策略定义（`hybrid/knowledge-base`、`relational/structured-logs`、`relational/simple-kv`、`vector/feature-store`）
     - 实现 `resolve(policyStr, params?)` 方法：解析 `main/minor` 格式，支持省略 minor
@@ -34,7 +34,7 @@
     - **Validates: Requirements 9.11, 6.5, 7.4**
     - **Property 3: main 类型决定引擎组合** — 生成随机合法 PolicyConfig，验证引擎组合与 main 类型一致
     - **Validates: Requirements 9.6, 9.7, 9.8**
-  - [ ] 2.3 实现 CollectionManager (`src/collection-manager.ts`)
+  - [x] 2.3 实现 CollectionManager (`src/collection-manager.ts`)
     - 实现 `init(name, policy)` 方法：创建目录结构，写入 `collection_meta.json`
     - 实现 `list()` 方法：扫描 collections 目录，读取每个集合的 meta 和统计信息
     - 实现 `remove(name)` 方法：递归删除集合目录
@@ -50,11 +50,11 @@
     - **Property 14: CollectionMeta 序列化 round-trip** — 生成随机 CollectionMeta，验证序列化/反序列化一致
     - **Validates: Requirements 1.1, 9.10**
 
-- [ ] 3. 检查点 — 确保所有测试通过
+- [x] 3. 检查点 — 确保所有测试通过
   - 确保所有测试通过，如有问题请向用户确认。
 
 - [ ] 4. 存储引擎实现
-  - [ ] 4.1 实现 SQLiteEngine (`src/engines/sqlite-engine.ts`)
+  - [x] 4.1 实现 SQLiteEngine (`src/engines/sqlite-engine.ts`)
     - 使用 `better-sqlite3` 打开/创建 `relational.db`
     - 实现 `initSchema(policy)` 方法：根据 Policy 创建 records 表和 FTS5 虚拟表
     - 实现 `upsert(records)` 和 `batchUpsert(records)` 方法（事务包裹）
@@ -62,14 +62,14 @@
     - 实现 `whereSearch(filter, limit)` 和 `ftsWhereSearch(query, filter, limit)` 方法
     - 实现 `countRows()` 和 `close()` 方法
     - _Requirements: 4.3, 4.5, 5.1, 7.1, 8.1, 8.3, 8.4_
-  - [ ] 4.2 实现 LanceDBEngine (`src/engines/lancedb-engine.ts`)
+  - [x] 4.2 实现 LanceDBEngine (`src/engines/lancedb-engine.ts`)
     - 使用 `@lancedb/lancedb` 连接到 `vector.lance/` 目录
     - 实现 `upsert(records)` 方法：写入含向量字段的记录
     - 实现 `vectorSearch(queryVector, options)` 方法：最近邻检索 + 可选预过滤
     - 实现 `filterSearch(filter, limit)` 方法：标量过滤查询
     - 实现 `countRows()` 和 `close()` 方法
     - _Requirements: 4.5, 6.1, 8.2, 8.6_
-  - [ ] 4.3 实现 Embedder (`src/embedder.ts`)
+  - [x] 4.3 实现 Embedder (`src/embedder.ts`)
     - 通过 `child_process.execFile` 调用 `pai embed --json`
     - 实现 `embed(text)` 单条嵌入和 `embedBatch(texts)` 批量嵌入
     - 解析 `pai embed` 的 JSON 输出提取向量
@@ -77,7 +77,7 @@
     - _Requirements: 6.1_
 
 - [ ] 5. 数据写入与检索
-  - [ ] 5.1 实现 DataWriter (`src/data-writer.ts`)
+  - [x] 5.1 实现 DataWriter (`src/data-writer.ts`)
     - 实现写入路由逻辑：根据 Policy findCaps 分发到对应引擎
     - 实现 `write(record)` 单条写入：自动生成 UUID、调用 Embedder 向量化、upsert
     - 实现 `writeBatch(records)` 批量写入：事务优化、容错处理、统计输出
@@ -89,7 +89,7 @@
     - **Validates: Requirements 4.3**
     - **Property 9: 批量写入统计不变量** — 生成混合合法/非法 JSON 行，验证 inserted + updated + errors = 总行数
     - **Validates: Requirements 5.2, 5.3**
-  - [ ] 5.3 实现 DataFinder (`src/data-finder.ts`)
+  - [x] 5.3 实现 DataFinder (`src/data-finder.ts`)
     - 实现查询路由逻辑：根据 `--similar`/`--match`/`--where` 分发到对应引擎
     - 实现 `find(query, options)` 方法：调用 Embedder 向量化查询文本、执行检索、格式化输出
     - 实现能力检查：验证集合 Policy 是否支持请求的检索类型
@@ -102,21 +102,21 @@
     - **Property 12: where 过滤结果满足条件** — 生成随机数据和简单 WHERE 条件，验证结果满足条件
     - **Validates: Requirements 8.4**
 
-- [ ] 6. 检查点 — 确保所有测试通过
+- [x] 6. 检查点 — 确保所有测试通过
   - 确保所有测试通过，如有问题请向用户确认。
 
 - [ ] 7. CLI 命令接入与集成
-  - [ ] 7.1 实现 `col` 子命令 (`src/commands/col.ts`)
+  - [x] 7.1 实现 `col` 子命令 (`src/commands/col.ts`)
     - 接入 `col init`：解析 `--policy` 和 `--params`，调用 CollectionManager.init
     - 接入 `col list`：调用 CollectionManager.list，JSONL 输出到 stdout
     - 接入 `col rm`：调用 CollectionManager.remove
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 2.1, 2.2, 3.1, 3.2_
-  - [ ] 7.2 实现 `put` 命令 (`src/commands/put.ts`)
+  - [x] 7.2 实现 `put` 命令 (`src/commands/put.ts`)
     - 解析位置参数 JSON 或 stdin JSONL 输入
     - 支持 `--batch` 模式
     - 调用 DataWriter 写入，输出统计信息
     - _Requirements: 4.1, 4.2, 4.6, 4.7, 5.1, 5.2, 5.3_
-  - [ ] 7.3 实现 `find` 命令 (`src/commands/find.ts`)
+  - [x] 7.3 实现 `find` 命令 (`src/commands/find.ts`)
     - 解析 `--similar`/`--match`/`--where`/`--limit` 参数
     - 支持位置参数和 stdin 查询文本
     - 调用 DataFinder 检索，JSONL 输出到 stdout
@@ -125,7 +125,7 @@
     - **Property 13: 数据 round-trip 一致性** — 生成随机 JSON 数据，通过 DataWriter 写入后通过 DataFinder 读取，验证数据等价
     - **Validates: Requirements 10.4**
 
-- [ ] 8. 最终检查点 — 确保所有测试通过
+- [x] 8. 最终检查点 — 确保所有测试通过
   - 确保所有测试通过，如有问题请向用户确认。
 
 ## 备注
