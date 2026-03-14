@@ -91,7 +91,9 @@ export class LanceDBEngine {
       return results.map((row) => {
         const data: Record<string, unknown> = {};
         for (const [key, value] of Object.entries(row)) {
+          // Skip internal distance field and vector fields (Float32Array / large number arrays)
           if (key === '_distance') continue;
+          if (key.endsWith('_vector')) continue;
           data[key] = value;
         }
         return {
@@ -116,6 +118,7 @@ export class LanceDBEngine {
       return results.map((row) => {
         const data: Record<string, unknown> = {};
         for (const [key, value] of Object.entries(row)) {
+          if (key.endsWith('_vector')) continue;
           data[key] = value;
         }
         return {

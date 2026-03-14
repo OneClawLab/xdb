@@ -18,11 +18,12 @@ export class Embedder {
   /**
    * Embed multiple texts in a single batch call.
    * Calls: pai embed --batch --json '<json-array>'
+   * pai returns: { "embeddings": [[...], [...]], "model": "...", "usage": {...} }
    */
   async embedBatch(texts: string[]): Promise<number[][]> {
     const stdout = await this.exec(['embed', '--batch', '--json', JSON.stringify(texts)]);
     const parsed = JSON.parse(stdout);
-    return parsed.map((item: { embedding: number[] }) => item.embedding);
+    return parsed.embeddings;
   }
 
   private exec(args: string[]): Promise<string> {

@@ -94,7 +94,9 @@ export async function executePut(
 
     // 3. Create Embedder and DataWriter
     const embedder = new Embedder();
-    const writer = new DataWriter(policy, embedder, lanceEngine, sqliteEngine);
+    const writer = new DataWriter(policy, embedder, lanceEngine, sqliteEngine, async (dim) => {
+      await manager.recordEmbeddingDimension(collection, dim);
+    });
 
     // 4. Collect records
     let records: Record<string, unknown>[];

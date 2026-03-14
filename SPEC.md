@@ -34,7 +34,6 @@
 * **输入:** 单个 JSON 字符串或通过 `stdin` 传入 JSONL。
 * **参数:**
 * `--batch`: 启用批量模式。开启 SQLite 事务，优化 LanceDB 写入。
-* `--intent <semantic|exact|fulltext>`: 覆盖默认 Policy 的写入暗示。
 
 
 * **行为:** 自动根据 `id` 字段执行 `upsert`。若无 `id` 则自动生成 UUID。
@@ -48,7 +47,6 @@
 * `-m, --match`: 关键词全文检索 (FTS5)。
 * `-w, --where`: SQL 片段过滤（例如 `"status = 'active' AND priority > 5"`）。
 * `-l, --limit`: 限制返回条数（默认 10）。
-* `--batch`: 从 `stdin` 读取多个查询 JSON。
 
 
 * **输出:** JSONL 格式，包含原始数据及系统元数据（如 `_score`, `_distance`）。

@@ -7,6 +7,8 @@ export interface CollectionMeta {
   name: string;
   policy: PolicyConfig;
   createdAt: string;
+  /** Embedding vector dimension, recorded on first vector write for consistency checks. */
+  embeddingDimension?: number;
 }
 
 export interface CollectionInfo {
@@ -14,6 +16,7 @@ export interface CollectionInfo {
   policy: string; // "main/minor"
   recordCount: number;
   sizeBytes: number;
+  embeddingDimension?: number;
 }
 
 export class CollectionManager {
@@ -82,12 +85,14 @@ export class CollectionManager {
 
         const meta = await this.load(entry);
         const sizeBytes = await this.calcDirSize(colPath);
+        const recordCount = await this.countRecords(colPath, meta.policy);
 
         results.push({
           name: meta.name,
           policy: `${meta.policy.main}/${meta.policy.minor}`,
-          recordCount: 0, // Will be populated when engines are available
+          recordCount,
           sizeBytes,
+          embeddingDimension: meta.embeddingDimension,
         });
       } catch {
         // Skip directories without valid meta
@@ -96,6 +101,58 @@ export class CollectionManager {
     }
 
     return results;
+  }
+
+  /**
+   * Count records in a collection by opening the appropriate engine.
+   * Prefers SQLite (cheaper to open) when available, falls back to LanceDB.
+   */
+  private async countRecords(colPath: string, policy: PolicyConfig): Promise<number> {
+    const hasSqlite = policy.main === 'hybrid' || policy.main === 'relational';
+    const hasLance = policy.main === 'hybrid' || policy.main === 'vector';
+
+    if (hasSqlite) {
+      try {
+        const { default: Database } = await import('better-sqlite3');
+        const dbPath = join(colPath, 'relational.db');
+        // Check file exists before opening
+        try { await stat(dbPath); } catch { return 0; }
+        const db = new Database(dbPath, { readonly: true });
+        try {
+          const row = db.prepare('SELECT COUNT(*) as cnt FROM records').get() as { cnt: number } | undefined;
+          return row?.cnt ?? 0;
+        } catch {
+          return 0;
+        } finally {
+          db.close();
+        }
+      } catch {
+        return 0;
+      }
+    }
+
+    if (hasLance) {
+      try {
+        const lancedb = await import('@lancedb/lancedb');
+        const dbPath = join(colPath, 'vector.lance');
+        try { await stat(dbPath); } catch { return 0; }
+        const db = await lancedb.connect(dbPath);
+        const tableNames = await db.tableNames();
+        if (tableNames.includes('data')) {
+          const table = await db.openTable('data');
+          const count = await table.countRows();
+          table.close();
+          db.close();
+          return count;
+        }
+        db.close();
+        return 0;
+      } catch {
+        return 0;
+      }
+    }
+
+    return 0;
   }
 
   /**
@@ -140,6 +197,26 @@ export class CollectionManager {
     } catch {
       return false;
     }
+  }
+
+  /**
+   * Update the embeddingDimension in collection_meta.json.
+   * Only writes if the current meta has no embeddingDimension set.
+   * Throws PARAMETER_ERROR if dimension conflicts with existing value.
+   */
+  async recordEmbeddingDimension(name: string, dimension: number): Promise<void> {
+    const meta = await this.load(name);
+    if (meta.embeddingDimension !== undefined) {
+      if (meta.embeddingDimension !== dimension) {
+        throw new XDBError(
+          PARAMETER_ERROR,
+          `Embedding dimension mismatch for collection "${name}": expected ${meta.embeddingDimension}, got ${dimension}. This usually means the embedding model has changed. Remove and recreate the collection to use a different model.`,
+        );
+      }
+      return; // already recorded, same dimension
+    }
+    meta.embeddingDimension = dimension;
+    await writeFile(this.metaPath(name), JSON.stringify(meta, null, 2), 'utf-8');
   }
 
   /** Calculate total size of all files in a directory (non-recursive for simplicity). */

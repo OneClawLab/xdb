@@ -66,7 +66,7 @@ describe('Embedder', () => {
         [0.1, 0.2, 0.3],
         [0.4, 0.5, 0.6],
       ];
-      mockPaiOutput(JSON.stringify(embeddings.map(e => ({ embedding: e }))));
+      mockPaiOutput(JSON.stringify({ embeddings }));
 
       const result = await embedder.embedBatch(['hello', 'world']);
 
@@ -80,14 +80,14 @@ describe('Embedder', () => {
 
     it('should handle single-item batch', async () => {
       const embeddings = [[0.1, 0.2]];
-      mockPaiOutput(JSON.stringify(embeddings.map(e => ({ embedding: e }))));
+      mockPaiOutput(JSON.stringify({ embeddings }));
 
       const result = await embedder.embedBatch(['single']);
       expect(result).toEqual(embeddings);
     });
 
     it('should handle empty batch', async () => {
-      mockPaiOutput(JSON.stringify([]));
+      mockPaiOutput(JSON.stringify({ embeddings: [] }));
 
       const result = await embedder.embedBatch([]);
       expect(result).toEqual([]);

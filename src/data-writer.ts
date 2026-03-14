@@ -12,12 +12,22 @@ export interface WriteResult {
 }
 
 export class DataWriter {
+  private dimensionRecorded = false;
+
   constructor(
     private policy: PolicyConfig,
     private embedder: Embedder,
     private lanceEngine?: LanceDBEngine,
     private sqliteEngine?: SQLiteEngine,
+    private onEmbeddingDimension?: (dimension: number) => Promise<void>,
   ) {}
+
+  /** Report embedding dimension on first encounter */
+  private async reportDimension(vector: number[]): Promise<void> {
+    if (this.dimensionRecorded || !this.onEmbeddingDimension) return;
+    this.dimensionRecorded = true;
+    await this.onEmbeddingDimension(vector.length);
+  }
 
   /**
    * Write a single record. Auto-generates UUID if no `id` field present.
@@ -112,6 +122,9 @@ export class DataWriter {
       const vectorsPerField: Map<string, number[][]> = new Map();
       for (const [field, texts] of textsPerField) {
         const vectors = await this.embedder.embedBatch(texts);
+        if (vectors.length > 0) {
+          await this.reportDimension(vectors[0]);
+        }
         vectorsPerField.set(field, vectors);
       }
 
@@ -189,6 +202,7 @@ export class DataWriter {
     for (const field of similarFields) {
       const text = String(record[field] ?? '');
       const vector = await this.embedder.embed(text);
+      await this.reportDimension(vector);
       vectorRecord[`${field}_vector`] = new Float32Array(vector);
     }
 
