@@ -183,7 +183,7 @@ describe('col subcommand', () => {
       }
     });
 
-    it('exits with code 1 when policy name is unknown (Req 1.4)', async () => {
+    it('exits with code 2 when policy name is unknown (Req 1.4)', async () => {
       const { program, captured, cleanup } = createTestColCommand(tmpDir);
       try {
         await program.parseAsync(['node', 'xdb', 'col', 'init', 'bad-pol', '--policy', 'nonexistent']);
@@ -192,12 +192,12 @@ describe('col subcommand', () => {
         cleanup();
       }
 
-      expect(captured.exitCode).toBe(1);
+      expect(captured.exitCode).toBe(2);
       expect(captured.stderr).toContain('Unknown policy');
       expect(captured.stderr).toContain('Available policies');
     });
 
-    it('exits with code 1 when collection already exists (Req 1.5)', async () => {
+    it('exits with code 2 when collection already exists (Req 1.5)', async () => {
       const { program: p1, cleanup: c1 } = createTestColCommand(tmpDir);
       try {
         await p1.parseAsync(['node', 'xdb', 'col', 'init', 'dup', '--policy', 'hybrid']);
@@ -213,11 +213,11 @@ describe('col subcommand', () => {
         c2();
       }
 
-      expect(cap2.exitCode).toBe(1);
+      expect(cap2.exitCode).toBe(2);
       expect(cap2.stderr).toContain('already exists');
     });
 
-    it('exits with code 1 when --params has invalid JSON', async () => {
+    it('exits with code 2 when --params has invalid JSON', async () => {
       const { program, captured, cleanup } = createTestColCommand(tmpDir);
       try {
         await program.parseAsync(['node', 'xdb', 'col', 'init', 'bad-json', '--policy', 'hybrid', '--params', '{bad}']);
@@ -226,11 +226,11 @@ describe('col subcommand', () => {
         cleanup();
       }
 
-      expect(captured.exitCode).toBe(1);
+      expect(captured.exitCode).toBe(2);
       expect(captured.stderr).toContain('Invalid JSON');
     });
 
-    it('exits with code 1 when findCaps conflict with engine type (Req 9.11)', async () => {
+    it('exits with code 2 when findCaps conflict with engine type (Req 9.11)', async () => {
       const params = JSON.stringify({ fields: { vec: { findCaps: ['similar'] } } });
       const { program, captured, cleanup } = createTestColCommand(tmpDir);
       try {
@@ -240,7 +240,7 @@ describe('col subcommand', () => {
         cleanup();
       }
 
-      expect(captured.exitCode).toBe(1);
+      expect(captured.exitCode).toBe(2);
       expect(captured.stderr).toContain('similar');
       expect(captured.stderr).toContain('relational');
     });
@@ -360,7 +360,7 @@ describe('col subcommand', () => {
       expect(captured.exitCode).toBeNull();
     });
 
-    it('exits with code 1 when collection does not exist (Req 3.2)', async () => {
+    it('exits with code 2 when collection does not exist (Req 3.2)', async () => {
       const { program, captured, cleanup } = createTestColCommand(tmpDir);
       try {
         await program.parseAsync(['node', 'xdb', 'col', 'rm', 'ghost']);
@@ -369,7 +369,7 @@ describe('col subcommand', () => {
         cleanup();
       }
 
-      expect(captured.exitCode).toBe(1);
+      expect(captured.exitCode).toBe(2);
       expect(captured.stderr).toContain('does not exist');
     });
   });

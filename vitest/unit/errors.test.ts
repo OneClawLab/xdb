@@ -9,23 +9,23 @@ import {
 } from '../../src/errors.js';
 
 describe('Error type constants', () => {
-  it('PARAMETER_ERROR should be 1', () => {
-    expect(PARAMETER_ERROR).toBe(1);
+  it('PARAMETER_ERROR should be 2', () => {
+    expect(PARAMETER_ERROR).toBe(2);
   });
 
-  it('CAPABILITY_ERROR should be 1', () => {
-    expect(CAPABILITY_ERROR).toBe(1);
+  it('CAPABILITY_ERROR should be 2', () => {
+    expect(CAPABILITY_ERROR).toBe(2);
   });
 
-  it('RUNTIME_ERROR should be 2', () => {
-    expect(RUNTIME_ERROR).toBe(2);
+  it('RUNTIME_ERROR should be 1', () => {
+    expect(RUNTIME_ERROR).toBe(1);
   });
 });
 
 describe('XDBError', () => {
   it('should store exitCode and message', () => {
     const err = new XDBError(PARAMETER_ERROR, 'missing --policy');
-    expect(err.exitCode).toBe(1);
+    expect(err.exitCode).toBe(2);
     expect(err.message).toBe('missing --policy');
     expect(err.name).toBe('XDBError');
   });
@@ -63,7 +63,7 @@ describe('handleError', () => {
     handleError(err);
 
     expect(writeSpy).toHaveBeenCalledWith('Error: bad param\n');
-    expect(exitSpy).toHaveBeenCalledWith(1);
+    expect(exitSpy).toHaveBeenCalledWith(2);
   });
 
   it('should treat plain Error as RUNTIME_ERROR', () => {

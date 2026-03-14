@@ -1,7 +1,7 @@
 // Error type constants with associated exit codes
-export const PARAMETER_ERROR = 1;
-export const CAPABILITY_ERROR = 1;
-export const RUNTIME_ERROR = 2;
+export const PARAMETER_ERROR = 2;
+export const CAPABILITY_ERROR = 2;
+export const RUNTIME_ERROR = 1;
 
 /**
  * Unified error class for xdb.
@@ -20,6 +20,7 @@ export class XDBError extends Error {
 /**
  * Write a formatted error message to stderr.
  * Format: "Error: <descriptive message>\n"
+ * If a suggestion is provided, append it.
  */
 export function outputError(err: XDBError): void {
   process.stderr.write(`Error: ${err.message}\n`);
