@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as fc from 'fast-check';
-import { PolicyRegistry, PolicyConfig, FieldConfig } from './policy-registry.js';
-import { XDBError } from './errors.js';
+import { PolicyRegistry, PolicyConfig, FieldConfig } from '../../src/policy-registry.js';
+import { XDBError } from '../../src/errors.js';
 
 const registry = new PolicyRegistry();
 
@@ -105,7 +105,6 @@ describe('PolicyRegistry Property-Based Tests', () => {
   // **Validates: Requirements 9.11, 6.5, 7.4**
   describe('Property 2: findCaps 与引擎类型一致性', () => {
     it('relational configs with "similar" findCaps should be rejected by validate', () => {
-      // Generate relational configs that have at least one field with 'similar'
       const arbRelationalWithSimilar: fc.Arbitrary<PolicyConfig> = fc
         .tuple(
           arbFieldName,
@@ -130,7 +129,6 @@ describe('PolicyRegistry Property-Based Tests', () => {
     });
 
     it('vector configs with "match" findCaps should be rejected by validate', () => {
-      // Generate vector configs that have at least one field with 'match'
       const arbVectorWithMatch: fc.Arbitrary<PolicyConfig> = fc
         .tuple(
           arbFieldName,

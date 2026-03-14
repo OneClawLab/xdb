@@ -1,11 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { mkdtemp, rm, readFile } from 'node:fs/promises';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { Command } from 'commander';
-import { CollectionManager } from '../collection-manager.js';
-import { PolicyRegistry } from '../policy-registry.js';
-import type { PolicyConfig } from '../policy-registry.js';
+import { CollectionManager } from '../../src/collection-manager.js';
+import { PolicyRegistry } from '../../src/policy-registry.js';
 
 /**
  * Helper: create a col command tree wired to a temp dataRoot.
@@ -45,7 +44,7 @@ function createTestColCommand(dataRoot: string) {
     .requiredOption('--policy <policy>', 'Policy name (main/minor format)')
     .option('--params <json>', 'Custom parameters as JSON to override policy defaults')
     .action(async (name: string, opts: { policy: string; params?: string }) => {
-      const { handleError, PARAMETER_ERROR, XDBError } = await import('../errors.js');
+      const { handleError, PARAMETER_ERROR, XDBError } = await import('../../src/errors.js');
       try {
         const registry = new PolicyRegistry();
         let params: Record<string, unknown> | undefined;
@@ -69,7 +68,7 @@ function createTestColCommand(dataRoot: string) {
     .command('list')
     .description('List all collections')
     .action(async () => {
-      const { handleError } = await import('../errors.js');
+      const { handleError } = await import('../../src/errors.js');
       try {
         const manager = new CollectionManager(dataRoot);
         const collections = await manager.list();
@@ -85,7 +84,7 @@ function createTestColCommand(dataRoot: string) {
     .command('rm <name>')
     .description('Remove a collection')
     .action(async (name: string) => {
-      const { handleError } = await import('../errors.js');
+      const { handleError } = await import('../../src/errors.js');
       try {
         const manager = new CollectionManager(dataRoot);
         await manager.remove(name);
@@ -154,7 +153,6 @@ describe('col subcommand', () => {
       const manager = new CollectionManager(tmpDir);
       const meta = await manager.load('param-col');
       expect(meta.policy.fields.summary).toEqual({ findCaps: ['match'] });
-      // Original field should still be there
       expect(meta.policy.fields.content).toEqual({ findCaps: ['similar', 'match'] });
       expect(captured.exitCode).toBeNull();
     });
@@ -165,7 +163,6 @@ describe('col subcommand', () => {
         await program.parseAsync(['node', 'xdb', 'col', 'init', 'no-policy']);
         expect.fail('Should have thrown');
       } catch (e) {
-        // Commander throws CommanderError when requiredOption is missing
         expect((e as Error).message).toBeTruthy();
       } finally {
         cleanup();
@@ -177,7 +174,6 @@ describe('col subcommand', () => {
       try {
         await program.parseAsync(['node', 'xdb', 'col', 'init', 'bad-pol', '--policy', 'nonexistent']);
       } catch {
-        // handleError calls process.exit which throws
       } finally {
         cleanup();
       }
@@ -199,7 +195,6 @@ describe('col subcommand', () => {
       try {
         await p2.parseAsync(['node', 'xdb', 'col', 'init', 'dup', '--policy', 'hybrid']);
       } catch {
-        // handleError calls process.exit
       } finally {
         c2();
       }
@@ -213,7 +208,6 @@ describe('col subcommand', () => {
       try {
         await program.parseAsync(['node', 'xdb', 'col', 'init', 'bad-json', '--policy', 'hybrid', '--params', '{bad}']);
       } catch {
-        // handleError calls process.exit
       } finally {
         cleanup();
       }
@@ -228,7 +222,6 @@ describe('col subcommand', () => {
       try {
         await program.parseAsync(['node', 'xdb', 'col', 'init', 'conflict', '--policy', 'relational', '--params', params]);
       } catch {
-        // handleError calls process.exit
       } finally {
         cleanup();
       }
@@ -253,7 +246,6 @@ describe('col subcommand', () => {
     });
 
     it('outputs JSONL with collection info (Req 2.1)', async () => {
-      // Create collections first
       const manager = new CollectionManager(tmpDir);
       const registry = new PolicyRegistry();
       await manager.init('col-a', registry.resolve('hybrid'));
@@ -273,7 +265,6 @@ describe('col subcommand', () => {
       const names = parsed.map((p: { name: string }) => p.name).sort();
       expect(names).toEqual(['col-a', 'col-b']);
 
-      // Each line should be valid JSON with expected fields
       for (const item of parsed) {
         expect(item).toHaveProperty('name');
         expect(item).toHaveProperty('policy');
@@ -325,7 +316,6 @@ describe('col subcommand', () => {
       try {
         await program.parseAsync(['node', 'xdb', 'col', 'rm', 'ghost']);
       } catch {
-        // handleError calls process.exit
       } finally {
         cleanup();
       }

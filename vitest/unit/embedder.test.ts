@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Embedder } from './embedder.js';
-import { XDBError, RUNTIME_ERROR } from './errors.js';
+import { Embedder } from '../../src/embedder.js';
+import { XDBError, RUNTIME_ERROR } from '../../src/errors.js';
 
 // Mock child_process so we don't need the real `pai` command
 vi.mock('node:child_process', () => ({

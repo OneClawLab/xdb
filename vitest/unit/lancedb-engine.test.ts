@@ -2,8 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { LanceDBEngine } from './lancedb-engine.js';
-import { XDBError } from '../errors.js';
+import { LanceDBEngine } from '../../src/engines/lancedb-engine.js';
 
 /**
  * Helper: generate a simple float vector of given dimension.
@@ -34,7 +33,6 @@ describe('LanceDBEngine', () => {
   describe('open', () => {
     it('opens a new LanceDB connection without error', async () => {
       engine = await LanceDBEngine.open(tmpDir);
-      // Should start with 0 rows (deferred table)
       expect(await engine.countRows()).toBe(0);
     });
 
@@ -45,7 +43,6 @@ describe('LanceDBEngine', () => {
       ]);
       await engine.close();
 
-      // Reopen
       engine = await LanceDBEngine.open(tmpDir);
       expect(await engine.countRows()).toBe(1);
     });
@@ -78,7 +75,6 @@ describe('LanceDBEngine', () => {
       expect(result.inserted).toBe(0);
       expect(await engine.countRows()).toBe(1);
 
-      // Verify data is updated
       const rows = await engine.filterSearch("id = 'r1'", 10);
       expect(rows).toHaveLength(1);
       expect(rows[0].data.tag).toBe('new');
@@ -111,20 +107,17 @@ describe('LanceDBEngine', () => {
   describe('vectorSearch (Req 6.1, 8.2)', () => {
     it('returns nearest neighbors', async () => {
       engine = await LanceDBEngine.open(tmpDir);
-      const dim = 4;
       await engine.upsert([
         { id: 'v1', vector: [1, 0, 0, 0], label: 'x-axis' },
         { id: 'v2', vector: [0, 1, 0, 0], label: 'y-axis' },
         { id: 'v3', vector: [0, 0, 1, 0], label: 'z-axis' },
       ]);
 
-      // Query close to v1
       const results = await engine.vectorSearch([0.9, 0.1, 0, 0], { limit: 2 });
       expect(results.length).toBeLessThanOrEqual(2);
       expect(results.length).toBeGreaterThanOrEqual(1);
       expect(results[0]._engine).toBe('lancedb');
       expect(typeof results[0]._score).toBe('number');
-      // The closest should be v1
       expect(results[0].data.id).toBe('v1');
     });
 
@@ -136,20 +129,18 @@ describe('LanceDBEngine', () => {
         { id: 'v3', vector: [0, 1, 0, 0], category: 'A' },
       ]);
 
-      // Search near v1/v2 but filter to category A only
       const results = await engine.vectorSearch([1, 0, 0, 0], {
         limit: 10,
         filter: "category = 'A'",
       });
 
       expect(results.every((r) => r.data.category === 'A')).toBe(true);
-      // v2 (category B) should not appear
       expect(results.find((r) => r.data.id === 'v2')).toBeUndefined();
     });
 
     it('respects limit', async () => {
       engine = await LanceDBEngine.open(tmpDir);
-      const records = [];
+      const records: { id: string; vector: number[]; idx: number }[] = [];
       for (let i = 0; i < 20; i++) {
         records.push({ id: `v${i}`, vector: makeVector(4, i), idx: i });
       }
@@ -183,7 +174,7 @@ describe('LanceDBEngine', () => {
 
     it('respects limit', async () => {
       engine = await LanceDBEngine.open(tmpDir);
-      const records = [];
+      const records: { id: string; vector: number[]; tag: string }[] = [];
       for (let i = 0; i < 10; i++) {
         records.push({ id: `f${i}`, vector: makeVector(4, i), tag: 'same' });
       }

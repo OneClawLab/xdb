@@ -2,11 +2,10 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { CollectionManager } from '../collection-manager.js';
-import { PolicyRegistry } from '../policy-registry.js';
-import { SQLiteEngine } from '../engines/sqlite-engine.js';
-import { executeFind } from './find.js';
-import { XDBError } from '../errors.js';
+import { CollectionManager } from '../../src/collection-manager.js';
+import { PolicyRegistry } from '../../src/policy-registry.js';
+import { SQLiteEngine } from '../../src/engines/sqlite-engine.js';
+import { executeFind } from '../../src/commands/find.js';
 
 describe('find command', () => {
   let tmpDir: string;
@@ -186,7 +185,6 @@ describe('find command', () => {
       const policy = registry.resolve('hybrid/knowledge-base');
       await manager.init('kb', policy);
 
-      // Seed data into SQLite with FTS
       const colPath = join(tmpDir, 'collections', 'kb');
       const sqlite = SQLiteEngine.open(colPath);
       sqlite.initSchema(policy);
@@ -296,7 +294,6 @@ describe('find command', () => {
         const obj = JSON.parse(line);
         expect(obj).toHaveProperty('_engine');
         expect(['lancedb', 'sqlite']).toContain(obj._engine);
-        // _score may be undefined for where-only queries
       }
     });
   });
@@ -304,13 +301,12 @@ describe('find command', () => {
   describe('registerFindCommand', () => {
     it('registers find command on a Commander program', async () => {
       const { Command } = await import('commander');
-      const { registerFindCommand } = await import('./find.js');
+      const { registerFindCommand } = await import('../../src/commands/find.js');
 
       const program = new Command();
       program.exitOverride();
       registerFindCommand(program);
 
-      // Verify the command is registered
       const findCmd = program.commands.find((c) => c.name() === 'find');
       expect(findCmd).toBeDefined();
       expect(findCmd!.description()).toBe('Search data in a collection');

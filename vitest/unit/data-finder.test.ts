@@ -2,12 +2,12 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { DataFinder } from './data-finder.js';
-import { SQLiteEngine } from './engines/sqlite-engine.js';
-import type { LanceDBEngine } from './engines/lancedb-engine.js';
-import type { Embedder } from './embedder.js';
-import type { PolicyConfig } from './policy-registry.js';
-import { XDBError } from './errors.js';
+import { DataFinder } from '../../src/data-finder.js';
+import { SQLiteEngine } from '../../src/engines/sqlite-engine.js';
+import type { LanceDBEngine } from '../../src/engines/lancedb-engine.js';
+import type { Embedder } from '../../src/embedder.js';
+import type { PolicyConfig } from '../../src/policy-registry.js';
+import { XDBError } from '../../src/errors.js';
 
 // --- Mock factories ---
 

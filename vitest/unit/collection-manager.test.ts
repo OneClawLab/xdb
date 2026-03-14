@@ -2,9 +2,9 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, rm, readFile, stat, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { CollectionManager } from './collection-manager.js';
-import { XDBError, PARAMETER_ERROR } from './errors.js';
-import type { PolicyConfig } from './policy-registry.js';
+import { CollectionManager } from '../../src/collection-manager.js';
+import { XDBError, PARAMETER_ERROR } from '../../src/errors.js';
+import type { PolicyConfig } from '../../src/policy-registry.js';
 
 const hybridPolicy: PolicyConfig = {
   main: 'hybrid',

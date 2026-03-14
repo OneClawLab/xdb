@@ -3,11 +3,11 @@ import * as fc from 'fast-check';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { DataFinder } from './data-finder.js';
-import { DataWriter } from './data-writer.js';
-import { SQLiteEngine, SearchResult } from './engines/sqlite-engine.js';
-import { PolicyRegistry, PolicyConfig } from './policy-registry.js';
-import type { Embedder } from './embedder.js';
+import { DataFinder } from '../../src/data-finder.js';
+import { DataWriter } from '../../src/data-writer.js';
+import { SQLiteEngine, SearchResult } from '../../src/engines/sqlite-engine.js';
+import { PolicyRegistry, PolicyConfig } from '../../src/policy-registry.js';
+import type { Embedder } from '../../src/embedder.js';
 
 const registry = new PolicyRegistry();
 const RELATIONAL_POLICY: PolicyConfig = registry.resolve('relational/structured-logs');

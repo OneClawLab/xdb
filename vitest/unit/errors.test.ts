@@ -6,7 +6,7 @@ import {
   RUNTIME_ERROR,
   outputError,
   handleError,
-} from './errors.js';
+} from '../../src/errors.js';
 
 describe('Error type constants', () => {
   it('PARAMETER_ERROR should be 1', () => {

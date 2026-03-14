@@ -2,9 +2,9 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { SQLiteEngine } from './sqlite-engine.js';
-import { XDBError } from '../errors.js';
-import type { PolicyConfig } from '../policy-registry.js';
+import { SQLiteEngine } from '../../src/engines/sqlite-engine.js';
+import { XDBError } from '../../src/errors.js';
+import type { PolicyConfig } from '../../src/policy-registry.js';
 
 const hybridPolicy: PolicyConfig = {
   main: 'hybrid',
@@ -55,7 +55,6 @@ describe('SQLiteEngine', () => {
     it('creates FTS5 virtual table when policy has match findCaps', () => {
       engine = SQLiteEngine.open(tmpDir);
       engine.initSchema(hybridPolicy);
-      // FTS should be available — inserting and searching should work
       engine.upsert([{ id: 'doc1', content: 'hello world' }]);
       const results = engine.ftsSearch('hello', 10);
       expect(results).toHaveLength(1);
@@ -66,7 +65,6 @@ describe('SQLiteEngine', () => {
       engine = SQLiteEngine.open(tmpDir);
       engine.initSchema(relationalPolicy);
       engine.upsert([{ id: 'doc1', content: 'hello world' }]);
-      // ftsSearch should return empty since no FTS table
       const results = engine.ftsSearch('hello', 10);
       expect(results).toHaveLength(0);
     });
@@ -98,7 +96,6 @@ describe('SQLiteEngine', () => {
       expect(result.updated).toBe(1);
       expect(engine.countRows()).toBe(1);
 
-      // Verify data is updated
       const rows = engine.whereSearch("json_extract(data, '$.id') = 'a'", 10);
       expect(rows).toHaveLength(1);
       expect(rows[0].data.value).toBe('new');
@@ -279,7 +276,6 @@ describe('SQLiteEngine', () => {
       engine = SQLiteEngine.open(tmpDir);
       engine.initSchema(relationalPolicy);
       engine.close();
-      // Prevent double-close in afterEach
       engine = undefined as unknown as SQLiteEngine;
     });
   });

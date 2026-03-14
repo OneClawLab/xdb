@@ -3,8 +3,8 @@ import * as fc from 'fast-check';
 import { mkdtemp, rm, readFile, writeFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { CollectionManager, CollectionMeta } from './collection-manager.js';
-import { PolicyRegistry, PolicyConfig, FieldConfig } from './policy-registry.js';
+import { CollectionManager, CollectionMeta } from '../../src/collection-manager.js';
+import { PolicyRegistry, PolicyConfig, FieldConfig } from '../../src/policy-registry.js';
 
 const registry = new PolicyRegistry();
 

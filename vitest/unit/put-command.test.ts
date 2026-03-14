@@ -2,10 +2,10 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { CollectionManager } from '../collection-manager.js';
-import { PolicyRegistry } from '../policy-registry.js';
-import { SQLiteEngine } from '../engines/sqlite-engine.js';
-import { executePut } from './put.js';
+import { CollectionManager } from '../../src/collection-manager.js';
+import { PolicyRegistry } from '../../src/policy-registry.js';
+import { SQLiteEngine } from '../../src/engines/sqlite-engine.js';
+import { executePut } from '../../src/commands/put.js';
 
 describe('put command', () => {
   let tmpDir: string;
@@ -73,7 +73,6 @@ describe('put command', () => {
         const results = engine.whereSearch('1=1', 10);
         expect(results).toHaveLength(1);
         expect(results[0].data.id).toBeDefined();
-        // UUID v4 format check
         expect(results[0].data.id).toMatch(
           /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
         );
@@ -96,7 +95,6 @@ describe('put command', () => {
         await executePut(tmpDir, 'bad-json', '{not valid json}', false);
         expect.fail('Should have thrown');
       } catch (e) {
-        // executePut throws XDBError directly (not via handleError since we call it directly)
         expect((e as Error).message).toContain('Invalid JSON');
       } finally {
         stderrSpy.mockRestore();
@@ -138,17 +136,11 @@ describe('put command', () => {
       });
 
       try {
-        // Simulate stdin by providing records as JSON arg won't work for batch,
-        // so we test executePut with batch=true and a single JSON arg
-        // Actually, batch mode reads from stdin. Let's test with positional arg + batch.
-        // The put command: if json positional is provided, it's parsed as single record.
-        // With --batch, it still writes via writeBatch.
         await executePut(tmpDir, 'batch-col', '{"id":"b1","msg":"batch1"}', true);
       } finally {
         stdoutSpy.mockRestore();
       }
 
-      // Verify stats output
       const stats = JSON.parse(captured.stdout.trim());
       expect(stats).toHaveProperty('inserted');
       expect(stats).toHaveProperty('updated');
@@ -156,7 +148,6 @@ describe('put command', () => {
       expect(stats.inserted).toBe(1);
       expect(stats.errors).toBe(0);
 
-      // Verify data was written
       const engine = openSqlite('batch-col');
       try {
         expect(engine.countRows()).toBe(1);
@@ -222,7 +213,6 @@ describe('put command', () => {
       });
 
       try {
-        // Write first record
         await executePut(tmpDir, 'stats-col', '{"id":"s1","msg":"first"}', true);
       } finally {
         stdoutSpy.mockRestore();

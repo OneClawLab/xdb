@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { PolicyRegistry } from './policy-registry.js';
-import { XDBError, PARAMETER_ERROR } from './errors.js';
+import { PolicyRegistry } from '../../src/policy-registry.js';
+import { XDBError, PARAMETER_ERROR } from '../../src/errors.js';
 
 describe('PolicyRegistry', () => {
   const registry = new PolicyRegistry();

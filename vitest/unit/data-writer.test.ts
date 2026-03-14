@@ -2,12 +2,12 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { DataWriter } from './data-writer.js';
-import { SQLiteEngine } from './engines/sqlite-engine.js';
-import type { LanceDBEngine } from './engines/lancedb-engine.js';
-import type { Embedder } from './embedder.js';
-import type { PolicyConfig } from './policy-registry.js';
-import { XDBError } from './errors.js';
+import { DataWriter } from '../../src/data-writer.js';
+import { SQLiteEngine } from '../../src/engines/sqlite-engine.js';
+import type { LanceDBEngine } from '../../src/engines/lancedb-engine.js';
+import type { Embedder } from '../../src/embedder.js';
+import type { PolicyConfig } from '../../src/policy-registry.js';
+import { XDBError } from '../../src/errors.js';
 
 // UUID v4 regex
 const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
