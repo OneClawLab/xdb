@@ -27,7 +27,7 @@
     - 实现 `validate(config)` 方法：验证 findCaps 与 main 引擎类型兼容性
     - 实现 `listPolicies()` 方法
     - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6, 9.7, 9.8, 9.9, 9.11_
-  - [ ]* 2.2 编写 PolicyRegistry 属性测试
+  - [x]* 2.2 编写 PolicyRegistry 属性测试
     - **Property 1: Policy 解析正确性** — 生成随机 main 类型，验证省略 minor 时解析结果等价于完整策略名
     - **Validates: Requirements 9.2**
     - **Property 2: findCaps 与引擎类型一致性** — 生成随机 PolicyConfig（含不兼容 findCaps），验证 validate 拒绝不兼容配置
@@ -40,7 +40,7 @@
     - 实现 `remove(name)` 方法：递归删除集合目录
     - 实现 `load(name)` 和 `exists(name)` 辅助方法
     - _Requirements: 1.1, 1.2, 1.5, 2.1, 2.2, 3.1, 3.2, 11.3, 11.4_
-  - [ ]* 2.4 编写 CollectionManager 属性测试
+  - [x]* 2.4 编写 CollectionManager 属性测试
     - **Property 4: params 覆盖后 Policy 快照正确性** — 生成随机策略和 params，验证合并后写入/读取一致
     - **Validates: Requirements 1.2, 9.9, 9.10**
     - **Property 5: 集合 init-then-rm round-trip** — 生成随机集合名和策略，验证创建后目录存在、删除后目录不存在
@@ -82,7 +82,7 @@
     - 实现 `write(record)` 单条写入：自动生成 UUID、调用 Embedder 向量化、upsert
     - 实现 `writeBatch(records)` 批量写入：事务优化、容错处理、统计输出
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 5.1, 5.2, 5.3_
-  - [ ]* 5.2 编写 DataWriter 属性测试
+  - [x]* 5.2 编写 DataWriter 属性测试
     - **Property 7: 自动生成 UUID** — 生成随机无 id 记录，验证自动 id 为合法 UUID v4 且唯一
     - **Validates: Requirements 4.4**
     - **Property 8: Upsert 语义正确性** — 生成随机记录和更新数据，验证更新后只有一条最新记录
@@ -94,7 +94,7 @@
     - 实现 `find(query, options)` 方法：调用 Embedder 向量化查询文本、执行检索、格式化输出
     - 实现能力检查：验证集合 Policy 是否支持请求的检索类型
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6_
-  - [ ]* 5.4 编写 DataFinder 属性测试
+  - [x]* 5.4 编写 DataFinder 属性测试
     - **Property 10: 检索结果输出格式** — 生成随机 SearchResult，验证每行为合法 JSON 且包含 _score 和 _engine
     - **Validates: Requirements 6.3, 7.2, 10.2**
     - **Property 11: 检索结果数量不超过 limit** — 生成随机 limit 和数据集，验证结果数量约束
@@ -121,7 +121,7 @@
     - 支持位置参数和 stdin 查询文本
     - 调用 DataFinder 检索，JSONL 输出到 stdout
     - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 7.1, 7.2, 7.3, 7.4, 8.1, 8.2, 8.3, 8.4, 8.5, 8.6_
-  - [ ]* 7.4 编写数据 round-trip 属性测试
+  - [x]* 7.4 编写数据 round-trip 属性测试
     - **Property 13: 数据 round-trip 一致性** — 生成随机 JSON 数据，通过 DataWriter 写入后通过 DataFinder 读取，验证数据等价
     - **Validates: Requirements 10.4**
 
