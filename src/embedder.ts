@@ -1,4 +1,7 @@
 import { execFile } from 'node:child_process';
+import { writeFile, unlink } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { XDBError, RUNTIME_ERROR } from './errors.js';
 
 /**
@@ -35,20 +38,26 @@ export class Embedder {
 
   /**
    * Embed multiple texts in a single batch call.
-   * Calls: pai embed --batch --json '<json-array>'
+   * Uses --input-file to avoid Windows command-line length limits.
    * pai returns: { "embeddings": [["<hex>", ...], ...], ... }
    */
   async embedBatch(texts: string[]): Promise<number[][]> {
-    const stdout = await this.exec(['embed', '--batch', '--json', JSON.stringify(texts)]);
-    const parsed = JSON.parse(stdout);
-    return (parsed.embeddings as string[][]).map(hexToVector);
+    const tmpFile = join(tmpdir(), `xdb-embed-${Date.now()}-${Math.random().toString(36).slice(2)}.json`);
+    try {
+      await writeFile(tmpFile, JSON.stringify(texts), 'utf8');
+      const stdout = await this.exec(['embed', '--batch', '--json', '--input-file', tmpFile]);
+      const parsed = JSON.parse(stdout);
+      return (parsed.embeddings as string[][]).map(hexToVector);
+    } finally {
+      await unlink(tmpFile).catch(() => { /* ignore cleanup errors */ });
+    }
   }
 
   private exec(args: string[]): Promise<string> {
     return new Promise((resolve, reject) => {
       // Use shell:true for Windows .cmd compatibility; quote args to prevent splitting
       const quoted = args.map(a => `"${a.replace(/"/g, '\\"')}"`);
-      execFile('pai', quoted, { shell: true }, (error, stdout) => {
+      execFile('pai', quoted, { shell: true, maxBuffer: 32 * 1024 * 1024 }, (error, stdout) => {
         if (error) {
           reject(new XDBError(RUNTIME_ERROR, `pai embed failed: ${error.message}`));
           return;
