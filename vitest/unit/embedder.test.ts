@@ -84,8 +84,8 @@ describe('Embedder', () => {
       expect(result).toEqual(expected);
       expect(mockSpawn).toHaveBeenCalledWith(
         'pai',
-        ['embed', '--json', 'hello world'],
-        undefined,
+        ['embed', '--json'],
+        'hello world',
         0,
         32,
       );

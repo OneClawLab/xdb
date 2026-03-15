@@ -114,7 +114,7 @@ describe('DataFinder', () => {
       expect(embedder.embed).toHaveBeenCalledWith('search text');
       expect(lanceEngine.vectorSearch).toHaveBeenCalledWith(
         Array(128).fill(0.1),
-        { limit: 5, filter: undefined },
+        { limit: 5, filter: undefined, column: 'content_vector' },
       );
       expect(results).toHaveLength(1);
       expect(results[0]._engine).toBe('lancedb');
@@ -130,7 +130,7 @@ describe('DataFinder', () => {
 
       expect(lanceEngine.vectorSearch).toHaveBeenCalledWith(
         expect.any(Array),
-        { limit: 10, filter: "category = 'tech'" },
+        { limit: 10, filter: "category = 'tech'", column: 'content_vector' },
       );
     });
 
@@ -277,7 +277,7 @@ describe('DataFinder', () => {
 
       expect(lanceEngine.vectorSearch).toHaveBeenCalledWith(
         expect.any(Array),
-        { limit: 3, filter: undefined },
+        { limit: 3, filter: undefined, column: 'content_vector' },
       );
     });
   });

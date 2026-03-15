@@ -96,121 +96,115 @@ describe('DataWriter Property-Based Tests', () => {
 
   // Feature: xdb-core, Property 7: 自动生成 UUID
   // **Validates: Requirements 4.4**
-  describe('Property 7: 自动生成 UUID', () => {
-    it('records without id get a valid UUID v4, and different records get different ids', async () => {
-      await fc.assert(
-        fc.asyncProperty(
-          fc.array(arbRecordWithoutId, { minLength: 2, maxLength: 5 }),
-          async (records) => {
-            const colPath = await mkdtemp(join(tmpDir, 'p7-'));
-            const engine = createSqliteEngine(colPath);
-            const writer = new DataWriter(RELATIONAL_POLICY, mockEmbedder, undefined, engine);
+  it('records without id get a valid UUID v4, and different records get different ids', async () => {
+    await fc.assert(
+      fc.asyncProperty(
+        fc.array(arbRecordWithoutId, { minLength: 2, maxLength: 5 }),
+        async (records) => {
+          const colPath = await mkdtemp(join(tmpDir, 'p7-'));
+          const engine = createSqliteEngine(colPath);
+          const writer = new DataWriter(RELATIONAL_POLICY, mockEmbedder, undefined, engine);
 
-            const assignedIds: string[] = [];
+          const assignedIds: string[] = [];
 
-            for (const rec of records) {
-              // Ensure no id field
-              expect(rec).not.toHaveProperty('id');
+          for (const rec of records) {
+            // Ensure no id field
+            expect(rec).not.toHaveProperty('id');
 
-              await writer.write(rec);
+            await writer.write(rec);
 
-              // Read back the last inserted record to get its id
-              const count = engine.countRows();
-              expect(count).toBeGreaterThan(0);
-            }
+            // Read back the last inserted record to get its id
+            const count = engine.countRows();
+            expect(count).toBeGreaterThan(0);
+          }
 
-            // Read all records from SQLite to collect assigned ids
-            const allRows = engine.whereSearch('1=1', 1000);
-            for (const row of allRows) {
-              const id = row.data.id as string;
-              // Each id must be a valid UUID v4
-              expect(id).toMatch(UUID_V4_RE);
-              assignedIds.push(id);
-            }
+          // Read all records from SQLite to collect assigned ids
+          const allRows = engine.whereSearch('1=1', 1000);
+          for (const row of allRows) {
+            const id = row.data.id as string;
+            // Each id must be a valid UUID v4
+            expect(id).toMatch(UUID_V4_RE);
+            assignedIds.push(id);
+          }
 
-            // All ids must be unique
-            const uniqueIds = new Set(assignedIds);
-            expect(uniqueIds.size).toBe(assignedIds.length);
+          // All ids must be unique
+          const uniqueIds = new Set(assignedIds);
+          expect(uniqueIds.size).toBe(assignedIds.length);
 
-            engine.close();
-          },
-        ),
-        { numRuns: 100 },
-      );
-    });
+          engine.close();
+        },
+      ),
+      { numRuns: 100 },
+    );
   });
 
   // Feature: xdb-core, Property 8: Upsert 语义正确性
   // **Validates: Requirements 4.3**
-  describe('Property 8: Upsert 语义正确性', () => {
-    it('writing with the same id results in only one record with the latest data', async () => {
-      await fc.assert(
-        fc.asyncProperty(arbUpsertData, async ({ id, payload1, payload2 }) => {
-          const colPath = await mkdtemp(join(tmpDir, 'p8-'));
-          const engine = createSqliteEngine(colPath);
-          const writer = new DataWriter(RELATIONAL_POLICY, mockEmbedder, undefined, engine);
+  it('writing with the same id results in only one record with the latest data', async () => {
+    await fc.assert(
+      fc.asyncProperty(arbUpsertData, async ({ id, payload1, payload2 }) => {
+        const colPath = await mkdtemp(join(tmpDir, 'p8-'));
+        const engine = createSqliteEngine(colPath);
+        const writer = new DataWriter(RELATIONAL_POLICY, mockEmbedder, undefined, engine);
 
-          // Write first version
-          const record1 = { id, ...payload1 };
-          await writer.write(record1);
+        // Write first version
+        const record1 = { id, ...payload1 };
+        await writer.write(record1);
 
-          // Verify one record exists
-          expect(engine.countRows()).toBe(1);
+        // Verify one record exists
+        expect(engine.countRows()).toBe(1);
 
-          // Write second version with same id
-          const record2 = { id, ...payload2 };
-          await writer.write(record2);
+        // Write second version with same id
+        const record2 = { id, ...payload2 };
+        await writer.write(record2);
 
-          // Still only one record
-          expect(engine.countRows()).toBe(1);
+        // Still only one record
+        expect(engine.countRows()).toBe(1);
 
-          // The record should have the latest data
-          const results = engine.whereSearch(`id = '${id}'`, 10);
-          expect(results).toHaveLength(1);
+        // The record should have the latest data
+        const results = engine.whereSearch(`id = '${id}'`, 10);
+        expect(results).toHaveLength(1);
 
-          const storedData = results[0].data;
-          expect(storedData.id).toBe(id);
+        const storedData = results[0].data;
+        expect(storedData.id).toBe(id);
 
-          // Verify the stored data contains the latest payload fields
-          for (const [key, value] of Object.entries(payload2)) {
-            expect(storedData[key]).toEqual(value);
-          }
+        // Verify the stored data contains the latest payload fields
+        for (const [key, value] of Object.entries(payload2)) {
+          expect(storedData[key]).toEqual(value);
+        }
 
-          engine.close();
-        }),
-        { numRuns: 100 },
-      );
-    });
+        engine.close();
+      }),
+      { numRuns: 100 },
+    );
   });
 
   // Feature: xdb-core, Property 9: 批量写入统计不变量
   // **Validates: Requirements 5.2, 5.3**
-  describe('Property 9: 批量写入统计不变量', () => {
-    it('inserted + updated + errors = total input count', async () => {
-      await fc.assert(
-        fc.asyncProperty(arbBatchInput, async (inputs) => {
-          const colPath = await mkdtemp(join(tmpDir, 'p9-'));
-          const engine = createSqliteEngine(colPath);
-          const writer = new DataWriter(RELATIONAL_POLICY, mockEmbedder, undefined, engine);
+  it('inserted + updated + errors = total input count', async () => {
+    await fc.assert(
+      fc.asyncProperty(arbBatchInput, async (inputs) => {
+        const colPath = await mkdtemp(join(tmpDir, 'p9-'));
+        const engine = createSqliteEngine(colPath);
+        const writer = new DataWriter(RELATIONAL_POLICY, mockEmbedder, undefined, engine);
 
-          // Suppress stderr warnings during batch write
-          const originalWrite = process.stderr.write;
-          process.stderr.write = (() => true) as typeof process.stderr.write;
+        // Suppress stderr warnings during batch write
+        const originalWrite = process.stderr.write;
+        process.stderr.write = (() => true) as typeof process.stderr.write;
 
-          try {
-            const result = await writer.writeBatch(inputs as Record<string, unknown>[]);
+        try {
+          const result = await writer.writeBatch(inputs as Record<string, unknown>[]);
 
-            // The invariant: inserted + updated + errors = total input count
-            const total = result.inserted + result.updated + result.errors;
-            expect(total).toBe(inputs.length);
-          } finally {
-            process.stderr.write = originalWrite;
-          }
+          // The invariant: inserted + updated + errors = total input count
+          const total = result.inserted + result.updated + result.errors;
+          expect(total).toBe(inputs.length);
+        } finally {
+          process.stderr.write = originalWrite;
+        }
 
-          engine.close();
-        }),
-        { numRuns: 100 },
-      );
-    });
+        engine.close();
+      }),
+      { numRuns: 100 },
+    );
   });
 });
