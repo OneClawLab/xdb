@@ -31,7 +31,8 @@ export class Embedder {
    * pai returns: { "embedding": ["<hex>", ...], ... }
    */
   async embed(text: string): Promise<number[]> {
-    const stdout = await this.exec(['embed', '--json', text]);
+    // Pass text via stdin to avoid shell word-splitting on Windows (shell: true)
+    const stdout = await this.execStdin(['embed', '--json'], text);
     const parsed = JSON.parse(stdout);
     return hexToVector(parsed.embedding);
   }
@@ -56,6 +57,15 @@ export class Embedder {
   private async exec(args: string[]): Promise<string> {
     try {
       const { stdout } = await spawnCommand('pai', args, undefined, 0, 32);
+      return stdout;
+    } catch (error) {
+      throw new XDBError(RUNTIME_ERROR, `pai embed failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  private async execStdin(args: string[], stdin: string): Promise<string> {
+    try {
+      const { stdout } = await spawnCommand('pai', args, stdin, 0, 32);
       return stdout;
     } catch (error) {
       throw new XDBError(RUNTIME_ERROR, `pai embed failed: ${error instanceof Error ? error.message : String(error)}`);
