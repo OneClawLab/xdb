@@ -46,7 +46,9 @@ export class Embedder {
 
   private exec(args: string[]): Promise<string> {
     return new Promise((resolve, reject) => {
-      execFile('pai', args, (error, stdout) => {
+      // Use shell:true for Windows .cmd compatibility; quote args to prevent splitting
+      const quoted = args.map(a => `"${a.replace(/"/g, '\\"')}"`);
+      execFile('pai', quoted, { shell: true }, (error, stdout) => {
         if (error) {
           reject(new XDBError(RUNTIME_ERROR, `pai embed failed: ${error.message}`));
           return;
