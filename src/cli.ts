@@ -3,9 +3,10 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { registerColCommands } from './commands/col.js';
+import { registerPolicyCommands } from './commands/policy.js';
 import { registerPutCommand } from './commands/put.js';
 import { registerFindCommand } from './commands/find.js';
-import { installHelp, addColExamples, addPutExamples, addFindExamples } from './help.js';
+import { installHelp, addColExamples, addPolicyExamples, addPutExamples, addFindExamples } from './help.js';
 
 // Gracefully handle EPIPE (broken pipe, e.g. `xdb ... | head`)
 process.stdout.on('error', (err: NodeJS.ErrnoException) => {
@@ -45,6 +46,18 @@ const col = program
 
 registerColCommands(col);
 addColExamples(col);
+
+// --- policy subcommand (policy discovery) ---
+const policy = program
+  .command('policy')
+  .description('Discover available policies');
+
+registerPolicyCommands(policy);
+addPolicyExamples(policy);
+
+policy.action(() => {
+  policy.outputHelp();
+});
 
 // --- put command (data writing) ---
 registerPutCommand(program);

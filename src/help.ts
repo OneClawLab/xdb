@@ -8,6 +8,8 @@ Examples:
   $ xdb put my-docs '{"content":"How to use tar"}'
   $ xdb find my-docs "compress files" --similar
   $ xdb col list
+  $ xdb col info my-docs
+  $ xdb policy list
 
 Prerequisites:
   向量化功能依赖 pai 命令。请确保 pai 已安装并配置了 embedding provider:
@@ -51,6 +53,16 @@ Examples:
 
 Warning: 此操作不可逆，将物理删除集合目录及所有索引文件。`;
 
+const COL_INFO_EXAMPLES = `
+Examples:
+  $ xdb col info my-docs                              # 人类可读
+  $ xdb col info my-docs --json                       # JSON 输出`;
+
+const POLICY_LIST_EXAMPLES = `
+Examples:
+  $ xdb policy list                                    # 人类可读
+  $ xdb policy list --json                             # JSON 输出`;
+
 const PUT_EXAMPLES = `
 Examples:
   $ xdb put my-docs '{"content":"How to use tar"}'    # 位置参数
@@ -91,6 +103,14 @@ export function addColExamples(col: Command): void {
     if (name === 'init') sub.addHelpText('after', COL_INIT_EXAMPLES);
     else if (name === 'list') sub.addHelpText('after', COL_LIST_EXAMPLES);
     else if (name === 'rm') sub.addHelpText('after', COL_RM_EXAMPLES);
+    else if (name === 'info') sub.addHelpText('after', COL_INFO_EXAMPLES);
+  }
+}
+
+export function addPolicyExamples(policy: Command): void {
+  for (const sub of policy.commands) {
+    const name = sub.name();
+    if (name === 'list') sub.addHelpText('after', POLICY_LIST_EXAMPLES);
   }
 }
 

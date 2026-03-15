@@ -75,6 +75,59 @@ export function registerColCommands(col: Command): void {
     });
 
   col
+    .command('info <name>')
+    .description('Show detailed information about a collection')
+    .option('--json', 'Output as JSON')
+    .action(async (name: string, opts: { json?: boolean }) => {
+      try {
+        const manager = new CollectionManager(getDataRoot());
+        const meta = await manager.load(name);
+        const collections = await manager.list();
+        const stats = collections.find((c) => c.name === name);
+
+        const info = {
+          name: meta.name,
+          createdAt: meta.createdAt,
+          policy: `${meta.policy.main}/${meta.policy.minor}`,
+          engines: meta.policy.main,
+          autoIndex: meta.policy.autoIndex ?? false,
+          fields: meta.policy.fields,
+          embeddingDimension: meta.embeddingDimension ?? null,
+          recordCount: stats?.recordCount ?? 0,
+          sizeBytes: stats?.sizeBytes ?? 0,
+        };
+
+        if (opts.json) {
+          process.stdout.write(JSON.stringify(info) + '\n');
+          return;
+        }
+
+        process.stdout.write(`name:       ${info.name}\n`);
+        process.stdout.write(`createdAt:  ${info.createdAt}\n`);
+        process.stdout.write(`policy:     ${info.policy}\n`);
+        process.stdout.write(`engines:    ${info.engines}\n`);
+        process.stdout.write(`autoIndex:  ${info.autoIndex}\n`);
+        process.stdout.write(`records:    ${info.recordCount}\n`);
+        process.stdout.write(`size:       ${formatBytes(info.sizeBytes)}\n`);
+        if (info.embeddingDimension) {
+          process.stdout.write(`embedDim:   ${info.embeddingDimension}\n`);
+        }
+
+        const fieldNames = Object.keys(info.fields);
+        if (fieldNames.length > 0) {
+          process.stdout.write(`fields:\n`);
+          for (const [f, cfg] of Object.entries(info.fields)) {
+            process.stdout.write(`  ${f}  findCaps=[${cfg.findCaps.join(', ')}]\n`);
+          }
+        } else {
+          process.stdout.write(`fields:     (none)\n`);
+        }
+      } catch (err) {
+        handleError(err);
+      }
+    });
+
+  col
     .command('rm <name>')
     .description('Remove a collection')
     .action(async (name: string) => {

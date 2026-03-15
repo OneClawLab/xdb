@@ -95,6 +95,60 @@ function createTestColCommand(dataRoot: string) {
     });
 
   col
+    .command('info <name>')
+    .description('Show detailed information about a collection')
+    .option('--json', 'Output as JSON')
+    .action(async (name: string, opts: { json?: boolean }) => {
+      const { handleError } = await import('../../src/errors.js');
+      try {
+        const manager = new CollectionManager(dataRoot);
+        const meta = await manager.load(name);
+        const collections = await manager.list();
+        const stats = collections.find((c) => c.name === name);
+
+        const info = {
+          name: meta.name,
+          createdAt: meta.createdAt,
+          policy: `${meta.policy.main}/${meta.policy.minor}`,
+          engines: meta.policy.main,
+          autoIndex: meta.policy.autoIndex ?? false,
+          fields: meta.policy.fields,
+          embeddingDimension: meta.embeddingDimension ?? null,
+          recordCount: stats?.recordCount ?? 0,
+          sizeBytes: stats?.sizeBytes ?? 0,
+        };
+
+        if (opts.json) {
+          process.stdout.write(JSON.stringify(info) + '\n');
+          return;
+        }
+
+        process.stdout.write(`name:       ${info.name}\n`);
+        process.stdout.write(`createdAt:  ${info.createdAt}\n`);
+        process.stdout.write(`policy:     ${info.policy}\n`);
+        process.stdout.write(`engines:    ${info.engines}\n`);
+        process.stdout.write(`autoIndex:  ${info.autoIndex}\n`);
+        process.stdout.write(`records:    ${info.recordCount}\n`);
+        process.stdout.write(`size:       0 B\n`);
+        if (info.embeddingDimension) {
+          process.stdout.write(`embedDim:   ${info.embeddingDimension}\n`);
+        }
+
+        const fieldNames = Object.keys(info.fields);
+        if (fieldNames.length > 0) {
+          process.stdout.write(`fields:\n`);
+          for (const [f, cfg] of Object.entries(info.fields)) {
+            process.stdout.write(`  ${f}  findCaps=[${cfg.findCaps.join(', ')}]\n`);
+          }
+        } else {
+          process.stdout.write(`fields:     (none)\n`);
+        }
+      } catch (err) {
+        handleError(err);
+      }
+    });
+
+  col
     .command('rm <name>')
     .description('Remove a collection')
     .action(async (name: string) => {
@@ -364,6 +418,83 @@ describe('col subcommand', () => {
       const { program, captured, cleanup } = createTestColCommand(tmpDir);
       try {
         await program.parseAsync(['node', 'xdb', 'col', 'rm', 'ghost']);
+      } catch {
+      } finally {
+        cleanup();
+      }
+
+      expect(captured.exitCode).toBe(2);
+      expect(captured.stderr).toContain('does not exist');
+    });
+  });
+
+  describe('col info', () => {
+    it('shows detailed info for an existing collection', async () => {
+      const manager = new CollectionManager(tmpDir);
+      const registry = new PolicyRegistry();
+      await manager.init('info-test', registry.resolve('hybrid'));
+
+      const { program, captured, cleanup } = createTestColCommand(tmpDir);
+      try {
+        await program.parseAsync(['node', 'xdb', 'col', 'info', 'info-test']);
+      } finally {
+        cleanup();
+      }
+
+      expect(captured.exitCode).toBeNull();
+      expect(captured.stdout).toContain('name:       info-test');
+      expect(captured.stdout).toContain('policy:     hybrid/knowledge-base');
+      expect(captured.stdout).toContain('engines:    hybrid');
+      expect(captured.stdout).toContain('autoIndex:  true');
+      expect(captured.stdout).toContain('records:    0');
+      expect(captured.stdout).toContain('createdAt:');
+      expect(captured.stdout).toContain('fields:');
+      expect(captured.stdout).toContain('content  findCaps=[similar, match]');
+    });
+
+    it('shows (none) for fields when policy has no fields', async () => {
+      const manager = new CollectionManager(tmpDir);
+      const registry = new PolicyRegistry();
+      await manager.init('logs-col', registry.resolve('relational/structured-logs'));
+
+      const { program, captured, cleanup } = createTestColCommand(tmpDir);
+      try {
+        await program.parseAsync(['node', 'xdb', 'col', 'info', 'logs-col']);
+      } finally {
+        cleanup();
+      }
+
+      expect(captured.exitCode).toBeNull();
+      expect(captured.stdout).toContain('fields:     (none)');
+    });
+
+    it('outputs JSON with --json', async () => {
+      const manager = new CollectionManager(tmpDir);
+      const registry = new PolicyRegistry();
+      await manager.init('json-info', registry.resolve('vector'));
+
+      const { program, captured, cleanup } = createTestColCommand(tmpDir);
+      try {
+        await program.parseAsync(['node', 'xdb', 'col', 'info', 'json-info', '--json']);
+      } finally {
+        cleanup();
+      }
+
+      expect(captured.exitCode).toBeNull();
+      const parsed = JSON.parse(captured.stdout.trim());
+      expect(parsed.name).toBe('json-info');
+      expect(parsed.policy).toBe('vector/feature-store');
+      expect(parsed.engines).toBe('vector');
+      expect(parsed.fields).toHaveProperty('tensor');
+      expect(parsed.fields.tensor.findCaps).toEqual(['similar']);
+      expect(parsed.recordCount).toBe(0);
+      expect(parsed.createdAt).toBeTruthy();
+    });
+
+    it('exits with code 2 when collection does not exist', async () => {
+      const { program, captured, cleanup } = createTestColCommand(tmpDir);
+      try {
+        await program.parseAsync(['node', 'xdb', 'col', 'info', 'nonexistent']);
       } catch {
       } finally {
         cleanup();

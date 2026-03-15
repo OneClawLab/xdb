@@ -62,6 +62,33 @@ xdb col list
 {"name":"my-docs","policy":"hybrid/knowledge-base","recordCount":42,"sizeBytes":102400,"embeddingDimension":1536}
 ```
 
+### 查看集合详情
+
+```bash
+xdb col info my-docs
+```
+
+输出集合的完整信息，包括 policy 快照、字段配置、记录数等：
+
+```
+name:       my-docs
+createdAt:  2025-01-15T10:30:00.000Z
+policy:     hybrid/knowledge-base
+engines:    hybrid
+autoIndex:  true
+records:    42
+size:       100.0 KB
+embedDim:   1536
+fields:
+  content  findCaps=[similar, match]
+```
+
+也支持 `--json` 输出：
+
+```bash
+xdb col info my-docs --json
+```
+
 ### 删除集合
 
 ```bash
@@ -157,6 +184,41 @@ xdb find my-docs "compression" --match --where "json_extract(data, '$.category')
 - `_engine`: 结果来源引擎（`lancedb` 或 `sqlite`）
 
 ## Policy 详解
+
+### 查看可用 Policy
+
+```bash
+xdb policy list
+```
+
+输出所有内置 policy 的详细信息：
+
+```
+hybrid/knowledge-base
+  engines:    LanceDB + SQLite
+  fields:     content [similar, match]
+  autoIndex:  yes
+relational/structured-logs
+  engines:    SQLite
+  fields:     (none)
+  autoIndex:  yes
+relational/simple-kv
+  engines:    SQLite
+  fields:     (none)
+  autoIndex:  no
+vector/feature-store
+  engines:    LanceDB
+  fields:     tensor [similar]
+  autoIndex:  no
+```
+
+也支持 `--json` 输出：
+
+```bash
+xdb policy list --json
+```
+
+### Policy 对照表
 
 | Policy | 向量化字段 | 全文检索 | 自动索引 | 适用场景 |
 |--------|-----------|---------|---------|---------|
