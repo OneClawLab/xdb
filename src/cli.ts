@@ -68,10 +68,6 @@ col.action(() => {
 (async () => {
   try {
     await program.parseAsync(process.argv);
-    // Show help if no arguments
-    if (process.argv.length <= 2) {
-      program.outputHelp();
-    }
   } catch (err) {
     if (err && typeof err === 'object' && 'exitCode' in err) {
       const exitCode = (err as { exitCode: number }).exitCode;
