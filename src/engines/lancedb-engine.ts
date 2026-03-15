@@ -55,11 +55,16 @@ export class LanceDBEngine {
     try {
       const countBefore = await this.table.countRows();
 
+      // Build a proper Arrow Table with FixedSizeList for vector columns.
+      // LanceDB's mergeInsert path calls makeArrowTable without vectorColumns,
+      // which would flatten Float32Array into individual numeric columns.
+      const arrowTable = LanceDBEngine.toArrowTable(records);
+
       await this.table
         .mergeInsert('id')
         .whenMatchedUpdateAll()
         .whenNotMatchedInsertAll()
-        .execute(records);
+        .execute(arrowTable);
 
       const countAfter = await this.table.countRows();
       const netNew = countAfter - countBefore;
@@ -73,14 +78,56 @@ export class LanceDBEngine {
   }
 
   /**
+   * Convert records with Float32Array fields into a proper Arrow Table.
+   * Detects Float32Array fields, registers them as vectorColumns, and
+   * uses makeArrowTable to create FixedSizeList<Float32> columns.
+   * If no Float32Array fields are found, returns records as-is for default handling.
+   */
+  protected static toArrowTable(records: Record<string, unknown>[]): Record<string, unknown>[] | ReturnType<typeof lancedb.makeArrowTable> {
+    // Detect Float32Array fields
+    const vectorColumnNames = new Set<string>();
+    for (const rec of records) {
+      for (const [key, value] of Object.entries(rec)) {
+        if (value instanceof Float32Array) {
+          vectorColumnNames.add(key);
+        }
+      }
+      if (vectorColumnNames.size > 0) break; // Only need to check first record
+    }
+
+    if (vectorColumnNames.size === 0) {
+      return records; // No vector fields, let LanceDB handle normally
+    }
+
+    // Build vectorColumns config and convert Float32Array to plain Array
+    const vectorColumns: Record<string, lancedb.VectorColumnOptions> = {};
+    for (const name of vectorColumnNames) {
+      vectorColumns[name] = new lancedb.VectorColumnOptions();
+    }
+
+    const converted = records.map((rec) => {
+      const out: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(rec)) {
+        out[key] = value instanceof Float32Array ? Array.from(value) : value;
+      }
+      return out;
+    });
+
+    return lancedb.makeArrowTable(converted, { vectorColumns });
+  }
+
+  /**
    * Nearest neighbor vector search with optional pre-filter.
    */
   async vectorSearch(
     queryVector: number[],
-    options: { limit: number; filter?: string },
+    options: { limit: number; filter?: string; column?: string },
   ): Promise<SearchResult[]> {
     try {
-      let query = this.table.vectorSearch(queryVector).limit(options.limit);
+      let query = this.table
+        .vectorSearch(queryVector)
+        .column(options.column ?? 'vector')
+        .limit(options.limit);
 
       if (options.filter) {
         query = query.where(options.filter);
@@ -174,7 +221,9 @@ class LanceDBEngineDeferred extends LanceDBEngine {
       throw new XDBError(RUNTIME_ERROR, 'LanceDB table does not exist yet. Write data first.');
     }
 
-    const table = await this.deferredDb.createTable(this.tableName, records);
+    // Use toArrowTable to properly handle Float32Array → FixedSizeList<Float32>
+    const data = LanceDBEngine.toArrowTable(records);
+    const table = await this.deferredDb.createTable(this.tableName, data);
     // Patch the parent's private fields
     (this as any).table = table;
     this.initialized = true;
@@ -201,7 +250,7 @@ class LanceDBEngineDeferred extends LanceDBEngine {
 
   override async vectorSearch(
     queryVector: number[],
-    options: { limit: number; filter?: string },
+    options: { limit: number; filter?: string; column?: string },
   ): Promise<SearchResult[]> {
     if (!this.initialized) {
       return [];

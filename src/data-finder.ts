@@ -55,8 +55,12 @@ export class DataFinder {
       throw new XDBError(PARAMETER_ERROR, 'Query text is required for --similar search');
     }
 
+    // Determine the vector column name: first field with 'similar' cap + '_vector'
+    const similarField = this.getSimilarFields()[0];
+    const column = `${similarField}_vector`;
+
     const vector = await this.embedder.embed(query);
-    return this.lanceEngine!.vectorSearch(vector, { limit, filter: where });
+    return this.lanceEngine!.vectorSearch(vector, { limit, filter: where, column });
   }
 
   /** --match: full-text search via SQLite FTS5 */
@@ -93,5 +97,12 @@ export class DataFinder {
   /** Check if the policy has any field with the given findCap */
   private hasCap(cap: 'similar' | 'match'): boolean {
     return Object.values(this.policy.fields).some((cfg) => cfg.findCaps.includes(cap));
+  }
+
+  /** Get field names that have 'similar' findCaps */
+  private getSimilarFields(): string[] {
+    return Object.entries(this.policy.fields)
+      .filter(([, cfg]) => cfg.findCaps.includes('similar'))
+      .map(([name]) => name);
   }
 }
