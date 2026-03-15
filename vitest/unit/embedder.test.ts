@@ -2,14 +2,18 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Embedder, hexToVector } from '../../src/embedder.js';
 import { XDBError, RUNTIME_ERROR } from '../../src/errors.js';
 
-// Mock child_process so we don't need the real `pai` command
-vi.mock('node:child_process', () => ({
-  execFile: vi.fn(),
+// Mock os-utils so we don't need the real `pai` command
+vi.mock('../../src/os-utils.js', () => ({
+  spawnCommand: vi.fn(),
+  IS_WIN32: false,
+  BASE_SPAWN_OPTIONS: {},
+  commandExists: vi.fn(),
+  execCommand: vi.fn(),
 }));
 
-import { execFile } from 'node:child_process';
+import { spawnCommand } from '../../src/os-utils.js';
 
-const mockExecFile = vi.mocked(execFile);
+const mockSpawn = vi.mocked(spawnCommand);
 
 /**
  * Encode a number[] vector as a hex string array of float32 values (big-endian).
@@ -31,20 +35,14 @@ function vectorToHex(vec: number[]): string[] {
   return result;
 }
 
-/** Helper to make the mocked execFile resolve with given stdout */
+/** Helper to make the mocked spawnCommand resolve with given stdout */
 function mockPaiOutput(stdout: string) {
-  mockExecFile.mockImplementation((_cmd, _args, callback: any) => {
-    callback(null, stdout, '');
-    return {} as any;
-  });
+  mockSpawn.mockResolvedValue({ stdout, stderr: '' });
 }
 
-/** Helper to make the mocked execFile reject with an error */
+/** Helper to make the mocked spawnCommand reject with an error */
 function mockPaiError(error: Error) {
-  mockExecFile.mockImplementation((_cmd, _args, callback: any) => {
-    callback(error, '', '');
-    return {} as any;
-  });
+  mockSpawn.mockRejectedValue(error);
 }
 
 describe('hexToVector', () => {
@@ -84,10 +82,12 @@ describe('Embedder', () => {
 
       const expected = Array.from(new Float32Array(vector));
       expect(result).toEqual(expected);
-      expect(mockExecFile).toHaveBeenCalledWith(
+      expect(mockSpawn).toHaveBeenCalledWith(
         'pai',
         ['embed', '--json', 'hello world'],
-        expect.any(Function),
+        undefined,
+        0,
+        32,
       );
     });
 
@@ -102,7 +102,7 @@ describe('Embedder', () => {
   });
 
   describe('embedBatch(texts)', () => {
-    it('should call pai embed --batch --json with JSON array and return embeddings', async () => {
+    it('should call pai embed --batch --json --input-file with a temp file and return embeddings', async () => {
       const embeddings = [
         [0.1, 0.2, 0.3],
         [0.4, 0.5, 0.6],
@@ -117,10 +117,13 @@ describe('Embedder', () => {
         const expected = Array.from(new Float32Array(embeddings[i]));
         expect(result[i]).toEqual(expected);
       }
-      expect(mockExecFile).toHaveBeenCalledWith(
+      // Should use --input-file (not inline JSON) to avoid CLI length limits
+      expect(mockSpawn).toHaveBeenCalledWith(
         'pai',
-        ['embed', '--batch', '--json', JSON.stringify(['hello', 'world'])],
-        expect.any(Function),
+        expect.arrayContaining(['embed', '--batch', '--json', '--input-file', expect.any(String)]),
+        undefined,
+        0,
+        32,
       );
     });
 

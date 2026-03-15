@@ -38,7 +38,7 @@ export class Embedder {
 
   /**
    * Embed multiple texts in a single batch call.
-   * Uses --input-file to avoid Windows command-line length limits.
+   * Uses --input-file to avoid command-line length limits.
    * pai returns: { "embeddings": [["<hex>", ...], ...], ... }
    */
   async embedBatch(texts: string[]): Promise<number[][]> {
