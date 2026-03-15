@@ -145,7 +145,8 @@ export class LanceDBEngine {
         }
         return {
           data,
-          _score: row._distance != null ? 1 / (1 + row._distance) : undefined,
+          // Convert cosine distance [0,2] → cosine similarity [0,1]: 1 - distance/2
+          _score: row._distance != null ? 1 - row._distance / 2 : undefined,
           _engine: 'lancedb' as const,
         };
       });
