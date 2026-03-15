@@ -1,7 +1,7 @@
-import { execFile } from 'node:child_process';
 import { writeFile, unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { spawnCommand } from './os-utils.js';
 import { XDBError, RUNTIME_ERROR } from './errors.js';
 
 /**
@@ -53,18 +53,13 @@ export class Embedder {
     }
   }
 
-  private exec(args: string[]): Promise<string> {
-    return new Promise((resolve, reject) => {
-      // Use shell:true for Windows .cmd compatibility; quote args to prevent splitting
-      const quoted = args.map(a => `"${a.replace(/"/g, '\\"')}"`);
-      execFile('pai', quoted, { shell: true, maxBuffer: 32 * 1024 * 1024 }, (error, stdout) => {
-        if (error) {
-          reject(new XDBError(RUNTIME_ERROR, `pai embed failed: ${error.message}`));
-          return;
-        }
-        resolve(stdout);
-      });
-    });
+  private async exec(args: string[]): Promise<string> {
+    try {
+      const { stdout } = await spawnCommand('pai', args, undefined, 0, 32);
+      return stdout;
+    } catch (error) {
+      throw new XDBError(RUNTIME_ERROR, `pai embed failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
 }
 
