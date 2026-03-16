@@ -8,6 +8,7 @@ export interface XdbProviderConfig {
   apiKey?: string;
   baseUrl?: string;
   api?: string; // e.g. 'azure-openai'
+  providerOptions?: Record<string, unknown>;
 }
 
 export interface XdbConfig {
@@ -16,7 +17,22 @@ export interface XdbConfig {
   providers: XdbProviderConfig[];
 }
 
+/** Minimal shape of pai's config file we care about for embed fallback */
+interface PaiConfig {
+  defaultEmbedProvider?: string;
+  defaultEmbedModel?: string;
+  providers?: Array<{
+    name: string;
+    apiKey?: string;
+    baseUrl?: string;
+    api?: string;
+    providerOptions?: Record<string, unknown>;
+    oauth?: unknown;
+  }>;
+}
+
 const DEFAULT_CONFIG_PATH = path.join(os.homedir(), 'config', 'xdb', 'default.json');
+const PAI_CONFIG_PATH = path.join(os.homedir(), 'config', 'pai', 'default.json');
 
 const EMPTY_CONFIG: XdbConfig = {
   providers: [],
@@ -94,8 +110,51 @@ export class XdbConfigManager {
   }
 
   /**
+   * Try to load pai's config as an embed fallback.
+   * Returns null if pai config doesn't exist or has no embed settings.
+   */
+  private async loadPaiFallback(): Promise<{ provider: string; model: string; providerConfig: XdbProviderConfig; apiKey: string } | null> {
+    let raw: string;
+    try {
+      raw = await fs.readFile(PAI_CONFIG_PATH, 'utf-8');
+    } catch {
+      return null;
+    }
+
+    let pai: PaiConfig;
+    try {
+      pai = JSON.parse(raw) as PaiConfig;
+    } catch {
+      return null;
+    }
+
+    const provider = pai.defaultEmbedProvider;
+    const model = pai.defaultEmbedModel;
+    if (!provider || !model) return null;
+
+    const paiProvider = pai.providers?.find((p) => p.name === provider);
+    if (!paiProvider) return null;
+
+    // pai OAuth providers don't have a usable apiKey for embedding — skip them
+    if (!paiProvider.apiKey) return null;
+
+    const providerConfig: XdbProviderConfig = {
+      name: paiProvider.name,
+      apiKey: paiProvider.apiKey,
+      baseUrl: paiProvider.baseUrl,
+      api: paiProvider.api,
+      providerOptions: paiProvider.providerOptions,
+    };
+
+    return { provider, model, providerConfig, apiKey: paiProvider.apiKey };
+  }
+
+  /**
    * Resolve the current embed configuration (provider + model + providerConfig + apiKey).
-   * Throws XDBError(PARAMETER_ERROR) if provider or model is not configured.
+   * Priority:
+   *   1. xdb's own config (~/.config/xdb/default.json or XDB_* env vars)
+   *   2. pai's config (~/.config/pai/default.json) as fallback
+   * Throws XDBError(PARAMETER_ERROR) if neither source has embed config.
    */
   async resolveEmbedConfig(): Promise<{
     provider: string;
@@ -106,24 +165,24 @@ export class XdbConfigManager {
     const config = await this.load();
 
     const provider = config.defaultEmbedProvider;
-    if (!provider) {
-      throw new XDBError(
-        PARAMETER_ERROR,
-        'No embed provider configured. Run: xdb config embed --set-provider <name>',
-      );
-    }
-
     const model = config.defaultEmbedModel;
-    if (!model) {
-      throw new XDBError(
-        PARAMETER_ERROR,
-        'No embed model configured. Run: xdb config embed --set-model <model>',
-      );
+
+    if (provider && model) {
+      const providerConfig = config.providers.find((p) => p.name === provider) ?? { name: provider };
+      const apiKey = await this.resolveApiKey(provider);
+      return { provider, model, providerConfig, apiKey };
     }
 
-    const providerConfig = config.providers.find((p) => p.name === provider) ?? { name: provider };
-    const apiKey = await this.resolveApiKey(provider);
+    // Fallback: try pai config
+    const paiFallback = await this.loadPaiFallback();
+    if (paiFallback) {
+      return paiFallback;
+    }
 
-    return { provider, model, providerConfig, apiKey };
+    throw new XDBError(
+      PARAMETER_ERROR,
+      'No embed provider configured. Run: xdb config embed --set-provider <name>\n' +
+      'Or configure pai embed settings: pai model default --embed-provider <name> --embed-model <model>',
+    );
   }
 }

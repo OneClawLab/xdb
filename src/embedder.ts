@@ -25,6 +25,7 @@ export class Embedder {
       model,
       baseUrl: providerConfig.baseUrl,
       api: providerConfig.api,
+      providerOptions: providerConfig.providerOptions,
     });
     try {
       const response = await client.embed({ texts: [text], model });
@@ -47,6 +48,7 @@ export class Embedder {
       model,
       baseUrl: providerConfig.baseUrl,
       api: providerConfig.api,
+      providerOptions: providerConfig.providerOptions,
     });
     try {
       const response = await client.embed({ texts, model });
