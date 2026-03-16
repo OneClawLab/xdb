@@ -53,6 +53,28 @@
 
 ---
 
+#### `xdb embed [text]`
+
+直接调用已配置的 embedding provider 对文本进行向量化，输出向量数据。
+
+* **参数:**
+  * `--batch`: 批量模式，输入为 JSON 字符串数组，每个元素独立向量化。
+  * `--json`: JSON 格式输出，包含 model 和 usage 元数据。
+  * `--input-file <path>`: 从文件读取输入。
+
+* **输入来源**（三选一，互斥）：位置参数、stdin、`--input-file`。
+
+* **输出:** 向量以 float32 hex 编码（每维度 8 位十六进制字符串）。
+  * 纯文本模式：每行一个 hex 数组，`["3f800000","bf800000",...]`
+  * JSON 单条：`{ "embedding": [...], "model": "...", "usage": { ... } }`
+  * JSON 批量：`{ "embeddings": [[...], ...], "model": "...", "usage": { ... } }`
+
+* **截断行为:** 若输入超出模型 token 上限，自动截断并在 stderr 输出警告（含原始 token 数、截断后 token 数、模型上限）。
+
+* **配置来源:** embedding provider 和模型从 `pai` 配置读取（`defaultEmbedProvider` / `defaultEmbedModel`）。
+
+---
+
 ### 3.2 集合管理 (Collection Management)
 
 #### `xdb col init <name>`

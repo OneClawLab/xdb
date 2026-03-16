@@ -16,6 +16,66 @@ npm link   # 全局安装 xdb 命令
 pai model default --embed-provider openai --embed-model text-embedding-3-small
 ```
 
+## 文本向量化
+
+### `xdb embed`
+
+直接调用已配置的 embedding provider 对文本进行向量化，输出向量数据。
+
+```bash
+# 单条文本
+xdb embed "how to compress files"
+
+# 从 stdin
+echo "database optimization" | xdb embed
+
+# 从文件
+xdb embed --input-file document.txt
+
+# 批量模式（输入为 JSON 字符串数组）
+xdb embed --batch '["hello","world","foo"]'
+
+# JSON 输出（含模型和用量信息）
+xdb embed "hello" --json
+```
+
+**选项：**
+- `--batch` — 批量模式，输入为 JSON 字符串数组
+- `--json` — JSON 格式输出（含 model、usage 元数据）
+- `--input-file <path>` — 从文件读取输入
+
+**输入来源**（三选一，互斥）：
+1. 位置参数：`xdb embed "text"`
+2. stdin：`echo "text" | xdb embed`
+3. 文件：`xdb embed --input-file file.txt`
+
+**输出格式：**
+
+纯文本（默认）— 每行一个 hex 编码向量数组：
+```
+["3f800000","bf800000",...]
+```
+
+JSON 模式（`--json`）— 单条：
+```json
+{"embedding":["3f800000",...],"model":"text-embedding-3-small","usage":{"prompt_tokens":2,"total_tokens":2}}
+```
+
+JSON 模式（`--json --batch`）— 批量：
+```json
+{"embeddings":[["3f800000",...],["3f000000",...]],"model":"text-embedding-3-small","usage":{"prompt_tokens":4,"total_tokens":4}}
+```
+
+向量以 float32 hex 编码（每个维度 8 位十六进制字符串），精度无损且比 JSON 数字数组更紧凑。
+
+若输入文本超出模型 token 上限，会自动截断并在 stderr 输出警告。
+
+embedding provider 和模型通过 `pai` 配置：
+
+```bash
+pai model default --embed-provider openai --embed-model text-embedding-3-small
+```
+
 ## 集合管理
 
 ### 创建集合

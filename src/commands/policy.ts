@@ -15,6 +15,7 @@ export function registerPolicyCommands(policy: Command): void {
     .description('List all available built-in policies')
     .option('--json', 'Output as JSON array')
     .action((opts: { json?: boolean }) => {
+      process.stderr.write("[Deprecated] xdb policy list is deprecated. Use 'xdb config' instead.\n");
       try {
         const registry = new PolicyRegistry();
         const policies = registry.listPolicies();

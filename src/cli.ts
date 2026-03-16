@@ -6,6 +6,8 @@ import { registerColCommands } from './commands/col.js';
 import { registerPolicyCommands } from './commands/policy.js';
 import { registerPutCommand } from './commands/put.js';
 import { registerFindCommand } from './commands/find.js';
+import { registerConfigCommands } from './commands/config.js';
+import { registerEmbedCommand } from './commands/embed.js';
 import { installHelp, addColExamples, addPolicyExamples, addPutExamples, addFindExamples } from './help.js';
 
 // Gracefully handle EPIPE (broken pipe, e.g. `xdb ... | head`)
@@ -66,6 +68,16 @@ addPutExamples(program.commands.find(c => c.name() === 'put')!);
 // --- find command (data retrieval) ---
 registerFindCommand(program);
 addFindExamples(program.commands.find(c => c.name() === 'find')!);
+
+// --- config command (embed service configuration) ---
+const config = program
+  .command('config')
+  .description('Manage xdb configuration');
+
+registerConfigCommands(config);
+
+// --- embed command ---
+registerEmbedCommand(program);
 
 // Ensure errors go to stderr (Requirement 10.3)
 program.configureOutput({
