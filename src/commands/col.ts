@@ -95,6 +95,7 @@ export function registerColCommands(col: Command): void {
           embeddingDimension: meta.embeddingDimension ?? null,
           recordCount: stats?.recordCount ?? 0,
           sizeBytes: stats?.sizeBytes ?? 0,
+          path: join(getDataRoot(), 'collections', name),
         };
 
         if (opts.json) {
@@ -104,6 +105,7 @@ export function registerColCommands(col: Command): void {
 
         process.stdout.write(`name:       ${info.name}\n`);
         process.stdout.write(`createdAt:  ${info.createdAt}\n`);
+        process.stdout.write(`path:       ${info.path}\n`);
         process.stdout.write(`policy:     ${info.policy}\n`);
         process.stdout.write(`engines:    ${info.engines}\n`);
         process.stdout.write(`autoIndex:  ${info.autoIndex}\n`);
