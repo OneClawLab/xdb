@@ -13,6 +13,8 @@ async function makeTempDir(): Promise<string> {
 describe('XdbConfigManager', () => {
   let tmpDir: string;
   let configPath: string;
+  // Use a non-existent pai config path so the pai fallback never fires in tests
+  const noPaiConfig = '/nonexistent/pai/default.json';
 
   beforeEach(async () => {
     tmpDir = await makeTempDir();
@@ -159,7 +161,7 @@ describe('XdbConfigManager', () => {
 
   describe('resolveEmbedConfig()', () => {
     it('throws PARAMETER_ERROR when defaultEmbedProvider not set', async () => {
-      const mgr = new XdbConfigManager(configPath);
+      const mgr = new XdbConfigManager(configPath, noPaiConfig);
       await expect(mgr.resolveEmbedConfig()).rejects.toMatchObject({
         exitCode: PARAMETER_ERROR,
       });
@@ -171,7 +173,7 @@ describe('XdbConfigManager', () => {
         JSON.stringify({ defaultEmbedProvider: 'openai', providers: [] }),
         'utf-8',
       );
-      const mgr = new XdbConfigManager(configPath);
+      const mgr = new XdbConfigManager(configPath, noPaiConfig);
       await expect(mgr.resolveEmbedConfig()).rejects.toMatchObject({
         exitCode: PARAMETER_ERROR,
       });
@@ -189,7 +191,7 @@ describe('XdbConfigManager', () => {
           }),
           'utf-8',
         );
-        const mgr = new XdbConfigManager(configPath);
+        const mgr = new XdbConfigManager(configPath, noPaiConfig);
         const result = await mgr.resolveEmbedConfig();
         expect(result.provider).toBe('openai');
         expect(result.model).toBe('text-embedding-3-small');

@@ -40,9 +40,11 @@ const EMPTY_CONFIG: XdbConfig = {
 
 export class XdbConfigManager {
   private readonly configPath: string;
+  private readonly paiConfigPath: string;
 
-  constructor(configPath?: string) {
+  constructor(configPath?: string, paiConfigPath?: string) {
     this.configPath = configPath ?? DEFAULT_CONFIG_PATH;
+    this.paiConfigPath = paiConfigPath ?? PAI_CONFIG_PATH;
   }
 
   async load(): Promise<XdbConfig> {
@@ -116,7 +118,7 @@ export class XdbConfigManager {
   private async loadPaiFallback(): Promise<{ provider: string; model: string; providerConfig: XdbProviderConfig; apiKey: string } | null> {
     let raw: string;
     try {
-      raw = await fs.readFile(PAI_CONFIG_PATH, 'utf-8');
+      raw = await fs.readFile(this.paiConfigPath, 'utf-8');
     } catch {
       return null;
     }
@@ -141,9 +143,9 @@ export class XdbConfigManager {
     const providerConfig: XdbProviderConfig = {
       name: paiProvider.name,
       apiKey: paiProvider.apiKey,
-      baseUrl: paiProvider.baseUrl,
-      api: paiProvider.api,
-      providerOptions: paiProvider.providerOptions,
+      ...(paiProvider.baseUrl !== undefined && { baseUrl: paiProvider.baseUrl }),
+      ...(paiProvider.api !== undefined && { api: paiProvider.api }),
+      ...(paiProvider.providerOptions !== undefined && { providerOptions: paiProvider.providerOptions }),
     };
 
     return { provider, model, providerConfig, apiKey: paiProvider.apiKey };
