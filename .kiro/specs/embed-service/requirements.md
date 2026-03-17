@@ -15,7 +15,7 @@
 
 ## 术语表
 
-- **XDB_Config**: xdb 的配置对象，存储于 `~/config/xdb/default.json`
+- **XDB_Config**: xdb 的配置对象，存储于 `~/.config/xdb/default.json`
 - **Config_Manager**: xdb 配置管理器，负责读写 XDB_Config
 - **Embedding_Client**: 嵌入向量 API 客户端，直接调用 Provider 的 HTTP 端点（OpenAI 兼容格式）
 - **Embed_Command**: `xdb embed` 子命令，接收文本输入并返回嵌入向量
@@ -32,7 +32,7 @@
 
 #### 验收标准
 
-1. THE Config_Manager SHALL 从 `~/config/xdb/default.json` 读写 XDB_Config
+1. THE Config_Manager SHALL 从 `~/.config/xdb/default.json` 读写 XDB_Config
 2. THE XDB_Config SHALL 支持 `defaultEmbedProvider` 字段，用于指定默认的嵌入 Provider 名称
 3. THE XDB_Config SHALL 支持 `defaultEmbedModel` 字段，用于指定默认的嵌入模型名称
 4. THE XDB_Config SHALL 支持 `providers` 数组，每个 Provider 条目包含 `name`、`apiKey`（可选）、`baseUrl`（可选）、`api`（可选）字段

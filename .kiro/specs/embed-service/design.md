@@ -6,7 +6,7 @@
 
 核心设计原则：
 1. **复用 pai 的成熟实现**：`EmbeddingClient`、`embed-io`（parseBatchInput/formatEmbeddingOutput/vectorToHex）、`embedding-models`（token 截断）直接从 pai 复制，不重新开发
-2. **独立配置**：xdb 使用 `~/config/xdb/default.json`，与 pai 配置完全隔离
+2. **独立配置**：xdb 使用 `~/.config/xdb/default.json`，与 pai 配置完全隔离
 3. **内部接口高效**：`Internal_Embedder` 直接返回 `number[]`，无 hex 编码开销，直接传给 lancedb
 4. **CLI 行为一致**：`xdb embed` 的输出格式与 `pai embed` 完全相同（hex 编码向量）
 
@@ -32,7 +32,7 @@ graph TD
 
     subgraph 外部
         API["Provider Embedding API\n(OpenAI /v1/embeddings 等)"]
-        CFGFILE["~/config/xdb/default.json"]
+        CFGFILE["~/.config/xdb/default.json"]
     end
 
     CLI_EMBED --> EIO
@@ -79,7 +79,7 @@ export interface XdbConfig {
 }
 
 export class XdbConfigManager {
-  constructor(configPath?: string); // 默认 ~/config/xdb/default.json
+  constructor(configPath?: string); // 默认 ~/.config/xdb/default.json
 
   async load(): Promise<XdbConfig>;
   async save(config: XdbConfig): Promise<void>;
@@ -248,7 +248,7 @@ xdb embed [text] [--batch] [--json] [--input-file <path>]
 }
 ```
 
-配置文件路径：`~/config/xdb/default.json`
+配置文件路径：`~/.config/xdb/default.json`
 
 ### 凭证解析优先级
 

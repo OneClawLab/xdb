@@ -31,8 +31,8 @@ interface PaiConfig {
   }>;
 }
 
-const DEFAULT_CONFIG_PATH = path.join(os.homedir(), 'config', 'xdb', 'default.json');
-const PAI_CONFIG_PATH = path.join(os.homedir(), 'config', 'pai', 'default.json');
+const DEFAULT_CONFIG_PATH = path.join(os.homedir(), '.config', 'xdb', 'default.json');
+const PAI_CONFIG_PATH = path.join(os.homedir(), '.config', 'pai', 'default.json');
 
 const EMPTY_CONFIG: XdbConfig = {
   providers: [],

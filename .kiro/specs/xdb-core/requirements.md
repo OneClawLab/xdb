@@ -150,7 +150,7 @@
 
 #### 验收标准
 
-1. THE XDB_CLI SHALL 使用 `~/.local/share/xdb/` 作为默认数据根目录
-2. THE XDB_CLI SHALL 在数据根目录下维护 `config.json` 全局配置文件，存储 API Key 和 Policy 定义
-3. WHEN 数据根目录不存在时，THE XDB_CLI SHALL 在首次操作时自动创建目录结构
-4. THE Collection_Manager SHALL 为每个集合在 `collections/<name>/` 下维护独立的目录，包含 `collection_meta.json`、`vector.lance/`（如适用）和 `relational.db`（如适用）
+1. THE XDB_CLI SHALL 使用 `~/.config/xdb/default.json/` 作为全局配置文件，存储 API Key 和 Policy 定义
+2. THE XDB_CLI SHALL 使用 `~/.local/share/xdb/` 作为默认数据根目录
+4. WHEN 数据根目录不存在时，THE XDB_CLI SHALL 在首次操作时自动创建目录结构
+5. THE Collection_Manager SHALL 为每个集合在 `collections/<name>/` 下维护独立的目录，包含 `collection_meta.json`、`vector.lance/`（如适用）和 `relational.db`（如适用）

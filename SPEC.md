@@ -148,7 +148,7 @@
 
 ```bash
 ~/.local/share/xdb/
-├── config.json               # 全局 API Key, 默认 Policy 定义
+├── default.json               # 全局 API Key, 默认 Policy 定义
 └── collections/
     └── [collection_name]/
         ├── collection_meta.json # 实例化时的 Policy 快照

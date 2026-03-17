@@ -72,7 +72,7 @@ describe('XdbConfigManager', () => {
 
   describe('save()', () => {
     it('creates directory automatically', async () => {
-      const nestedPath = path.join(tmpDir, 'a', 'b', 'c', 'config.json');
+      const nestedPath = path.join(tmpDir, 'a', 'b', 'c', 'default.json');
       const mgr = new XdbConfigManager(nestedPath);
       await mgr.save({ providers: [] });
 

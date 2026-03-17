@@ -29,7 +29,7 @@
     - 实现 `save(config: XdbConfig): Promise<void>`，自动创建目录
     - 实现 `resolveApiKey(providerName: string): Promise<string>`，优先级：`XDB_<PROVIDER>_API_KEY` 环境变量 > 配置文件 apiKey
     - 实现 `resolveEmbedConfig()`，未配置时抛出 `XDBError(PARAMETER_ERROR, ...)`
-    - 默认配置路径：`~/config/xdb/default.json`（支持构造函数注入自定义路径）
+    - 默认配置路径：`~/.config/xdb/default.json`（支持构造函数注入自定义路径）
     - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 4.1, 4.2, 4.3_
   - [x]* 2.2 为 XdbConfigManager 编写单元测试（`vitest/unit/config-manager.test.ts`）
     - 测试：配置文件不存在返回默认配置

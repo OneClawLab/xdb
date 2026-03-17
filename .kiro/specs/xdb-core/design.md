@@ -40,7 +40,7 @@ graph TD
         LANCE["vector.lance/"]
         SQLITE["relational.db"]
         META["collection_meta.json"]
-        CONFIG["config.json"]
+        CONFIG["default.json"]
     end
     
     CLI --> COL_CMD
@@ -408,7 +408,7 @@ findCaps 与引擎类型约束：
 {"id": "abc", "content": "...", "metadata": {...}, "_score": 0.985, "_engine": "lancedb"}
 ```
 
-### 全局配置 (`config.json`)
+### 全局配置 (`default.json`)
 
 ```json
 {

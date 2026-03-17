@@ -8,8 +8,9 @@
   },
   "scripts": {
     "build": "tsup",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "test": "vitest",
+    "test:watch": "vitest",
+    "release:local": "npm run build && npm link"
   },
   "dependencies": {
     "@lancedb/lancedb": "^0.15.0",
