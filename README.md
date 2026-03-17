@@ -49,9 +49,13 @@ cat records.jsonl | xdb put my-docs --batch
 |---------|-------------|
 | `xdb put <collection> [json]` | Write data (single JSON arg or JSONL via stdin) |
 | `xdb find <collection> [query]` | Search with `--similar`, `--match`, or `--where` |
+| `xdb embed [text]` | Generate text embeddings via configured pai provider |
 | `xdb col init <name> --policy <p>` | Create a collection with a policy |
 | `xdb col list` | List collections with stats |
+| `xdb col info <name>` | Show collection details |
 | `xdb col rm <name>` | Delete a collection |
+| `xdb policy list` | List available policies |
+| `xdb config` | Manage xdb configuration |
 
 ## Policies
 
