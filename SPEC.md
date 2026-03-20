@@ -1,166 +1,190 @@
-# CLI Specification: `xdb` (The Intent-Oriented Data Hub)
+# xdb - data collection management CLI command
 
-**Version:** 1.1.0
-**Status:** Stable-Design
-**Target:** AI Agents, CLI Toolchains, M2M (Machine-to-Machine)
+An intent-driven data store CLI for AI Agents and M2M toolchains. Callers declare *what* they want (similar search, exact match, full-text) — not *how* (vector DB, SQL). Internally hybridizes LanceDB (vector) and SQLite (relational/FTS) behind collection policies.
 
-## 1. 设计哲学 (Design Philosophy)
+## 决策记录
 
-* **意图驱动 (Intent-Driven):** 调用者声明“我要找相似的”或“我要精确匹配”，而不指定“查询向量库”或“查询 SQL”。
-* **引擎混合 (Engine Hybridization):** 内部透明整合 LanceDB (Vector) 与 SQLite (Relational/FTS)。
-* **机器友好 (M2M Optimized):** 强制标准 JSON/JSONL 输入输出，无交互式冗余。
-* **自包含 (Self-contained):** 每一个 Collection 包含其独立的 Policy 快照，确保数据可移植。
+1. **意图驱动**：调用者声明"我要找相似的"或"我要精确匹配"，而不指定"查询向量库"或"查询 SQL"。xdb 根据 collection policy 自动选择引擎。
+2. **引擎混合**：内部透明整合 LanceDB（Vector）与 SQLite（Relational/FTS5）。通过 Policy 决定数据流向，调用者无需感知。
+3. **机器友好**：强制标准 JSON/JSONL 输入输出，无交互式冗余。
+4. **自包含 Collection**：每个 Collection 包含其独立的 Policy 快照，确保数据可移植。清理时直接删除目录即可。
+5. **Embedding 配置复用 `pai`**：embedding provider 和模型从 `pai` 配置读取（`defaultEmbedProvider` / `defaultEmbedModel`），不重复配置。
 
----
+## 1. Role
 
-## 2. 存储架构 (Storage Architecture)
+- **Data Storage**: Persist structured and unstructured data with automatic indexing.
+- **Hybrid Search**: Semantic similarity (vector), keyword match (FTS5), and metadata filtering (SQL) — unified behind a single `find` command.
+- **Embedding**: Expose vectorization as a standalone `embed` subcommand.
+- **Collection Management**: Initialize, list, and remove self-contained data collections.
 
-`xdb` 采用双引擎冗余存储架构，通过 Policy 决定数据流向：
+## 2. Tech Stack & Project Structure
 
-* **LanceDB:** 负责 `vector` 索引。存储高维向量及其对应的原始文档片段。
-* **SQLite:** 负责 `metadata` 索引与 `full-text` 索引 (FTS5)。处理结构化过滤。
-* **Local FS:** 使用 JSON 存储 Collection 级别的 Meta 信息与 Policy 快照。
+遵循 `pai` repo 约定：
 
----
+- **TypeScript + ESM** (Node 20+)
+- **构建**: tsup (ESM, shebang banner)
+- **测试**: vitest (unit, pbt, fixtures)
+- **CLI 解析**: commander
+- **Vector**: LanceDB
+- **Relational/FTS**: SQLite (better-sqlite3)
 
-## 3. 命令定义 (Command Suite)
+## 3. Data Directory Layout
 
-### 3.1 核心操作 (Core Operations)
+```
+~/.local/share/xdb/
+├── default.json               # Global config (API keys, default policy definitions)
+└── collections/
+    └── [collection_name]/
+        ├── collection_meta.json # Policy snapshot at init time
+        ├── vector.lance/        # LanceDB data directory
+        └── relational.db        # SQLite database (metadata + FTS)
+```
 
-#### `xdb put <collection>`
-
-写入数据。
-
-* **输入:** 单个 JSON 字符串或通过 `stdin` 传入 JSONL。
-* **参数:**
-* `--batch`: 启用批量模式。开启 SQLite 事务，优化 LanceDB 写入。
-
-
-* **行为:** 自动根据 `id` 字段执行 `upsert`。若无 `id` 则自动生成 UUID。
-
-#### `xdb find <collection> [query-text]`
-
-检索数据。
-
-* **参数:**
-* `-s, --similar`: 语义查找。若 `query-text` 为空，则从 `stdin` 读取向量或文本。
-* `-m, --match`: 关键词全文检索 (FTS5)。
-* `-w, --where`: SQL 片段过滤（例如 `"status = 'active' AND priority > 5"`）。
-* `-l, --limit`: 限制返回条数（默认 10）。
-
-
-* **输出:** JSONL 格式，包含原始数据及系统元数据（如 `_score`, `_distance`）。
-
----
-
-#### `xdb embed [text]`
-
-直接调用已配置的 embedding provider 对文本进行向量化，输出向量数据。
-
-* **参数:**
-  * `--batch`: 批量模式，输入为 JSON 字符串数组，每个元素独立向量化。
-  * `--json`: JSON 格式输出，包含 model 和 usage 元数据。
-  * `--input-file <path>`: 从文件读取输入。
-
-* **输入来源**（三选一，互斥）：位置参数、stdin、`--input-file`。
-
-* **输出:** 向量以 float32 hex 编码（每维度 8 位十六进制字符串）。
-  * 纯文本模式：每行一个 hex 数组，`["3f800000","bf800000",...]`
-  * JSON 单条：`{ "embedding": [...], "model": "...", "usage": { ... } }`
-  * JSON 批量：`{ "embeddings": [[...], ...], "model": "...", "usage": { ... } }`
-
-* **截断行为:** 若输入超出模型 token 上限，自动截断并在 stderr 输出警告（含原始 token 数、截断后 token 数、模型上限）。
-
-* **配置来源:** embedding provider 和模型从 `pai` 配置读取（`defaultEmbedProvider` / `defaultEmbedModel`）。
-
----
-
-### 3.2 集合管理 (Collection Management)
-
-#### `xdb col init <name>`
-
-初始化集合。
-
-* **参数:**
-* `--policy <policy-name>`: 必选。指定预设的使用场景策略。
-* `--params '{"model": "..."}'`: 覆盖 Policy 中的默认参数（如指定不同的 Embedding Model）。
-
-
-
-#### `xdb col list`
-
-列出所有集合及其统计信息（数据量、物理占用、所属策略）。
-
-#### `xdb col rm <name>`
-
-物理删除集合及其所有索引文件。
-
----
-
-## 4. 预设策略 (Collection Policies)
+## 4. Collection Policies
 
 策略定义了底层引擎的组合方式，存储于全局配置中。
 
-| 策略 (Policy) | 向量化字段 | 关系索引字段 | FTS5 全文搜索 | 引擎组合 |
-| --- | --- | --- | --- | --- |
-| **`knowledge-base`** | `content` | 自动识别 | 开启 | LanceDB + SQLite |
-| **`structured-logs`** | 无 | 全部 | 关闭 | SQLite |
-| **`feature-store`** | `tensor` | 仅 `id` | 关闭 | LanceDB |
-| **`simple-kv`** | 无 | `key` | 关闭 | SQLite |
+| Policy | Vector Field | Relational Index | FTS5 | Engine Combination |
+|--------|-------------|-----------------|------|-------------------|
+| `knowledge-base` | `content` | Auto-detect | On | LanceDB + SQLite |
+| `structured-logs` | None | All fields | Off | SQLite only |
+| `feature-store` | `tensor` | `id` only | Off | LanceDB only |
+| `simple-kv` | None | `key` | Off | SQLite only |
 
----
+## 5. Data Protocol
 
-## 5. 数据协议 (Data Protocol)
-
-### 5.1 写入格式
+### 5.1 Write Format
 
 ```json
 {
   "id": "optional-unique-string",
-  "content": "主要文本内容，用于语义检索",
+  "content": "Main text content for semantic search",
   "metadata": {
     "author": "someone",
     "timestamp": 123456789
   },
   "any_other_field": "..."
 }
-
 ```
 
-### 5.2 查询响应 (JSONL)
+### 5.2 Query Response (JSONL)
 
-每一行是一个独立的结果对象：
+Each line is an independent result object:
 
 ```json
 {
   "id": "...",
   "content": "...",
-  "_score": 0.985, 
+  "_score": 0.985,
   "_engine": "lancedb",
   "metadata": { ... }
 }
-
 ```
 
----
+## 6. CLI Commands
 
-## 6. 物理目录结构 (Physical Layout)
+### 6.1 Core Operations
 
-```bash
-~/.local/share/xdb/
-├── default.json               # 全局 API Key, 默认 Policy 定义
-└── collections/
-    └── [collection_name]/
-        ├── collection_meta.json # 实例化时的 Policy 快照
-        ├── vector.lance/        # LanceDB 数据目录
-        └── relational.db        # SQLite 数据库文件 (Meta + FTS)
+#### `xdb put <collection>`
 
-```
+Write data to a collection.
 
----
+**Input**: Single JSON string or JSONL via `stdin`.
 
-## 7. 进化路径 (Evolutionary Path)
+**Args**:
+- `--batch` (optional — enable batch mode; opens SQLite transaction, optimizes LanceDB writes)
 
-1. **Phase 1 (Immediate):** 实现基于 SQLite 和 LanceDB 的本地存储。支持 `put --batch` 和 `find --similar`。
-2. **Phase 2 (Optimization):** 实现 **Hybrid Search (RRF)**，将相似度结果与关键词结果合并排序。
-3. **Phase 3 (Scaling):** 引入 `xdb col snapshot` 和 `xdb col restore`，支持数据集的快速迁移和备份。
+**Behavior**: 自动根据 `id` 字段执行 `upsert`。若无 `id` 则自动生成 UUID。
+
+#### `xdb find <collection> [query-text]`
+
+Search a collection.
+
+**Args**:
+- `-s, --similar` — semantic similarity search; reads vector/text from `stdin` if `query-text` is empty
+- `-m, --match` — keyword full-text search (FTS5)
+- `-w, --where` — SQL WHERE clause fragment for metadata filtering (e.g. `"status = 'active' AND priority > 5"`)
+- `-l, --limit` — max results (default 10)
+
+**Output**: JSONL to stdout, each line includes original data plus system metadata (`_score`, `_distance`).
+
+#### `xdb embed [text]`
+
+Vectorize text using the configured embedding provider.
+
+**Args**:
+- `--batch` — batch mode; input is a JSON string array, each element vectorized independently
+- `--json` — JSON output including model and usage metadata
+- `--input-file <path>` — read input from file
+
+**Input sources** (mutually exclusive): positional arg, stdin, `--input-file`.
+
+**Output**: 向量以 float32 hex 编码（每维度 8 位十六进制字符串）。
+- Plain text mode: one hex array per line, `["3f800000","bf800000",...]`
+- JSON single: `{ "embedding": [...], "model": "...", "usage": { ... } }`
+- JSON batch: `{ "embeddings": [[...], ...], "model": "...", "usage": { ... } }`
+
+**截断行为**: 若输入超出模型 token 上限，自动截断并在 stderr 输出警告（含原始 token 数、截断后 token 数、模型上限）。
+
+**配置来源**: embedding provider 和模型从 `pai` 配置读取（`defaultEmbedProvider` / `defaultEmbedModel`）。
+
+### 6.2 Collection Management
+
+#### `xdb col init <name>`
+
+Initialize a new collection.
+
+**Args**:
+- `--policy <policy-name>` (required — one of the preset policies)
+- `--params '{"model": "..."}'` (optional — override policy defaults, e.g. specify a different embedding model)
+
+#### `xdb col list`
+
+List all collections with stats (record count, disk usage, policy).
+
+#### `xdb col rm <name>`
+
+Physically delete a collection and all its index files.
+
+## 7. Output Format
+
+### 7.1 stdout / stderr Contract
+
+- `stdout`: Command result data (JSONL search results, embed output, collection list).
+- `stderr`: Progress, debug, error, and warning messages.
+
+### 7.2 Human / Machine Readability
+
+- Default output is machine-friendly (JSONL for `find`, hex arrays for `embed`).
+- `--json` provides additional metadata wrapping where applicable.
+
+## 8. Error Handling & Exit Codes
+
+### 8.1 Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success |
+| `1` | Logic error (collection not found, query returned no results, etc.) |
+| `2` | Usage/argument error (missing required args, invalid policy, etc.) |
+
+### 8.2 Error Output
+
+- Default: human-readable error to `stderr`.
+- `--json` mode: `{"error": "...", "suggestion": "..."}`
+
+## 9. Logging
+
+xdb 作为无状态 CLI 工具，不维护独立日志文件。错误和警告输出到 stderr。
+
+## 10. Evolutionary Path
+
+1. **Phase 1 (Immediate)**: 实现基于 SQLite 和 LanceDB 的本地存储。支持 `put --batch` 和 `find --similar`。
+2. **Phase 2 (Optimization)**: 实现 Hybrid Search (RRF)，将相似度结果与关键词结果合并排序。
+3. **Phase 3 (Scaling)**: 引入 `xdb col snapshot` 和 `xdb col restore`，支持数据集的快速迁移和备份。
+
+## 11. Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| (None) | xdb reads embedding config from `pai` config file | `~/.config/pai/default.json` |

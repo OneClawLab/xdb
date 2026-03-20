@@ -1,6 +1,6 @@
 # xdb
 
-Intent-driven data hub CLI for AI agents. Transparently combines LanceDB (vector) and SQLite (relational/FTS) behind a unified interface.
+Intent-driven data collection management CLI for AI agents. Transparently combines LanceDB (vector) and SQLite (relational/FTS) behind a unified interface.
 
 ## Features
 
