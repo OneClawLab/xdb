@@ -22,11 +22,7 @@ process.stderr.on('error', (err: NodeJS.ErrnoException) => {
 
 // Read version from package.json
 const __dirname = dirname(fileURLToPath(import.meta.url));
-let pkgVersion = '0.1.0';
-try {
-  const pkg = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf8'));
-  pkgVersion = pkg.version;
-} catch { /* fallback */ }
+const { version: pkgVersion } = JSON.parse(readFileSync(join(__dirname, '../package.json'), 'utf8')) as { version: string };
 
 const program = new Command();
 
