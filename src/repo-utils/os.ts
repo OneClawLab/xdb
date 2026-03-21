@@ -1,6 +1,8 @@
-import { execFile, spawn } from 'node:child_process';
+import { exec, execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { SpawnOptions } from 'node:child_process';
+
+const execAsync = promisify(exec);
 
 // async version of execFile from node:child_process
 const execFileAsync = promisify(execFile);
@@ -151,4 +153,21 @@ export function spawnCommand(
       }, timeoutMs);
     }
   });
+}
+
+/**
+ * Execute a full shell command string (e.g. "npm install -g foo@1.0.0").
+ * Uses /bin/sh on Unix, cmd.exe on Windows.
+ * Throws on non-zero exit code.
+ */
+export async function execShell(
+  command: string,
+  timeoutMs = 60000,
+): Promise<{ stdout: string; stderr: string }> {
+  const { stdout, stderr } = await execAsync(command, {
+    encoding: 'utf8',
+    timeout: timeoutMs,
+    windowsHide: true,
+  });
+  return { stdout, stderr };
 }
