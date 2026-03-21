@@ -1,17 +1,29 @@
 {
-  "name": "xdb",
-  "version": "1.0.0",
+  "name": "@theclawlab/xdb",
+  "version": "1.0.3",
   "description": "Intent-driven data hub CLI for AI agents",
   "type": "module",
   "bin": {
-    "xdb": "./dist/cli.js"
+    "xdb": "dist/cli.js"
   },
   "scripts": {
     "build": "tsup",
     "test": "vitest",
     "test:watch": "vitest",
-    "release:local": "npm run build && npm link"
+    "release:local": "npm run build && npm link",
+    "release:public": "npm test && npm run build && npm publish --access public",
+    "release:public:skip-test": "npm run build && npm publish --access public"
   },
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "USAGE.md"
+  ],
   "dependencies": {
     "@lancedb/lancedb": "^0.15.0",
     "better-sqlite3": "^11.8.1",

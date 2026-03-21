@@ -13,6 +13,14 @@ Intent-driven data collection management CLI for AI agents. Transparently combin
 
 ## Install
 
+### From npm
+
+```bash
+npm install -g @theclawlab/xdb
+```
+
+### From source
+
 ```bash
 npm install
 npm run build
