@@ -10,7 +10,7 @@ describe('PolicyRegistry', () => {
       const config = registry.resolve('hybrid/knowledge-base');
       expect(config.main).toBe('hybrid');
       expect(config.minor).toBe('knowledge-base');
-      expect(config.fields.content.findCaps).toEqual(['similar', 'match']);
+      expect(config.fields.content!.findCaps).toEqual(['similar', 'match']);
       expect(config.autoIndex).toBe(true);
     });
 
@@ -30,7 +30,7 @@ describe('PolicyRegistry', () => {
       const config = registry.resolve('vector');
       expect(config.main).toBe('vector');
       expect(config.minor).toBe('feature-store');
-      expect(config.fields.tensor.findCaps).toEqual(['similar']);
+      expect(config.fields.tensor!.findCaps).toEqual(['similar']);
     });
 
     it('resolves relational/simple-kv with autoIndex false', () => {
@@ -67,15 +67,15 @@ describe('PolicyRegistry', () => {
       const config = registry.resolve('hybrid/knowledge-base', {
         fields: { summary: { findCaps: ['match'] } },
       });
-      expect(config.fields.content.findCaps).toEqual(['similar', 'match']);
-      expect(config.fields.summary.findCaps).toEqual(['match']);
+      expect(config.fields.content!.findCaps).toEqual(['similar', 'match']);
+      expect(config.fields.summary!.findCaps).toEqual(['match']);
     });
 
     it('params can override existing field findCaps', () => {
       const config = registry.resolve('hybrid/knowledge-base', {
         fields: { content: { findCaps: ['similar'] } },
       });
-      expect(config.fields.content.findCaps).toEqual(['similar']);
+      expect(config.fields.content!.findCaps).toEqual(['similar']);
     });
 
     it('params can override autoIndex', () => {
@@ -87,11 +87,11 @@ describe('PolicyRegistry', () => {
 
     it('returns a deep clone — mutations do not affect builtin', () => {
       const config1 = registry.resolve('hybrid/knowledge-base');
-      config1.fields.content.findCaps.push('match');
+      config1.fields.content!.findCaps.push('match');
       config1.fields.newField = { findCaps: ['similar'] };
 
       const config2 = registry.resolve('hybrid/knowledge-base');
-      expect(config2.fields.content.findCaps).toEqual(['similar', 'match']);
+      expect(config2.fields.content!.findCaps).toEqual(['similar', 'match']);
       expect(config2.fields.newField).toBeUndefined();
     });
   });
@@ -185,11 +185,11 @@ describe('PolicyRegistry', () => {
     it('returns deep clones — mutations do not affect registry', () => {
       const policies = registry.listPolicies();
       const hybrid = policies.find((p) => p.main === 'hybrid')!;
-      hybrid.fields.content.findCaps = [];
+      hybrid.fields.content!.findCaps = [];
 
       const policiesAgain = registry.listPolicies();
       const hybridAgain = policiesAgain.find((p) => p.main === 'hybrid')!;
-      expect(hybridAgain.fields.content.findCaps).toEqual(['similar', 'match']);
+      expect(hybridAgain.fields.content!.findCaps).toEqual(['similar', 'match']);
     });
   });
 });

@@ -58,7 +58,7 @@ describe('SQLiteEngine', () => {
       engine.upsert([{ id: 'doc1', content: 'hello world' }]);
       const results = engine.ftsSearch('hello', 10);
       expect(results).toHaveLength(1);
-      expect(results[0].data.content).toBe('hello world');
+      expect(results[0]!.data.content).toBe('hello world');
     });
 
     it('does not create FTS5 when no match findCaps fields', () => {
@@ -98,7 +98,7 @@ describe('SQLiteEngine', () => {
 
       const rows = engine.whereSearch("json_extract(data, '$.id') = 'a'", 10);
       expect(rows).toHaveLength(1);
-      expect(rows[0].data.value).toBe('new');
+      expect(rows[0]!.data.value).toBe('new');
     });
 
     it('handles mixed insert and update', () => {
@@ -190,7 +190,7 @@ describe('SQLiteEngine', () => {
 
       const results = engine.ftsSearch('TypeScript', 10);
       expect(results.length).toBeGreaterThanOrEqual(1);
-      expect(results[0].data.title).toBe('TypeScript Guide');
+      expect(results[0]!.data.title).toBe('TypeScript Guide');
     });
   });
 
@@ -249,9 +249,9 @@ describe('SQLiteEngine', () => {
       );
 
       expect(results).toHaveLength(1);
-      expect(results[0].data.id).toBe('doc1');
-      expect(results[0]._engine).toBe('sqlite');
-      expect(typeof results[0]._score).toBe('number');
+      expect(results[0]!.data.id).toBe('doc1');
+      expect(results[0]!._engine).toBe('sqlite');
+      expect(typeof results[0]!._score).toBe('number');
     });
   });
 
@@ -288,10 +288,10 @@ describe('SQLiteEngine', () => {
       engine.upsert([{ id: 'doc1', content: 'test data' }]);
 
       const ftsResults = engine.ftsSearch('test', 10);
-      expect(ftsResults[0]._engine).toBe('sqlite');
+      expect(ftsResults[0]!._engine).toBe('sqlite');
 
       const whereResults = engine.whereSearch("json_extract(data, '$.id') = 'doc1'", 10);
-      expect(whereResults[0]._engine).toBe('sqlite');
+      expect(whereResults[0]!._engine).toBe('sqlite');
     });
 
     it('ftsSearch results have numeric _score', () => {
@@ -301,8 +301,8 @@ describe('SQLiteEngine', () => {
       engine.upsert([{ id: 'doc1', content: 'search term here' }]);
       const results = engine.ftsSearch('search', 10);
       expect(results).toHaveLength(1);
-      expect(typeof results[0]._score).toBe('number');
-      expect(results[0]._score).toBeGreaterThan(0);
+      expect(typeof results[0]!._score).toBe('number');
+      expect(results[0]!._score).toBeGreaterThan(0);
     });
 
     it('whereSearch results have no _score', () => {
@@ -312,7 +312,7 @@ describe('SQLiteEngine', () => {
       engine.upsert([{ id: 'doc1', value: 42 }]);
       const results = engine.whereSearch("json_extract(data, '$.value') = 42", 10);
       expect(results).toHaveLength(1);
-      expect(results[0]._score).toBeUndefined();
+      expect(results[0]!._score).toBeUndefined();
     });
   });
 
@@ -332,7 +332,7 @@ describe('SQLiteEngine', () => {
       engine.upsert([original]);
       const results = engine.whereSearch("json_extract(data, '$.id') = 'rt1'", 1);
       expect(results).toHaveLength(1);
-      expect(results[0].data).toEqual(original);
+      expect(results[0]!.data).toEqual(original);
     });
   });
 });

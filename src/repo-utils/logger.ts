@@ -15,6 +15,7 @@ export function formatLogLine(level: LogLevel, message: string): string {
   return `[${new Date().toISOString()}] [${level}] ${message}`;
 }
 
+// return format: YYYYMMDD-hhmmss (don't change)
 export function formatRotationTimestamp(date: Date): string {
   const pad = (n: number, len = 2) => String(n).padStart(len, '0');
   const Y = date.getUTCFullYear();
@@ -52,7 +53,7 @@ export async function createFileLogger(
   fs.mkdirSync(logDir, { recursive: true });
 
   const lineCount = countLines(logFile);
-  if (lineCount > maxLines) {
+  if (lineCount >= maxLines) {
     const ts = formatRotationTimestamp(new Date());
     fs.renameSync(logFile, path.join(logDir, `${logName}-${ts}.log`));
   }

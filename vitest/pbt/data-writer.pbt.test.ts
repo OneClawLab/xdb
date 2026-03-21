@@ -5,7 +5,8 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { DataWriter } from '../../src/data-writer.js';
 import { SQLiteEngine } from '../../src/engines/sqlite-engine.js';
-import { PolicyRegistry, PolicyConfig } from '../../src/policy-registry.js';
+import { PolicyRegistry } from '../../src/policy-registry.js';
+import type { PolicyConfig } from '../../src/policy-registry.js';
 import type { Embedder } from '../../src/embedder.js';
 
 const registry = new PolicyRegistry();
@@ -165,7 +166,7 @@ describe('DataWriter Property-Based Tests', () => {
         const results = engine.whereSearch(`id = '${id}'`, 10);
         expect(results).toHaveLength(1);
 
-        const storedData = results[0].data;
+        const storedData = results[0]!.data;
         expect(storedData.id).toBe(id);
 
         // Verify the stored data contains the latest payload fields

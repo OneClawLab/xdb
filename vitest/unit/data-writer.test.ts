@@ -96,8 +96,8 @@ describe('DataWriter', () => {
       expect(sqliteEngine.countRows()).toBe(1);
       const rows = sqliteEngine.whereSearch('1=1', 10);
       expect(rows).toHaveLength(1);
-      expect(rows[0].data.id).toBeDefined();
-      expect(String(rows[0].data.id)).toMatch(UUID_V4_RE);
+      expect(rows[0]!.data.id).toBeDefined();
+      expect(String(rows[0]!.data.id)).toMatch(UUID_V4_RE);
     });
 
     it('preserves existing id (Req 4.3)', async () => {
@@ -110,7 +110,7 @@ describe('DataWriter', () => {
 
       const rows = sqliteEngine.whereSearch("json_extract(data, '$.id') = 'my-id'", 10);
       expect(rows).toHaveLength(1);
-      expect(rows[0].data.id).toBe('my-id');
+      expect(rows[0]!.data.id).toBe('my-id');
     });
 
     it('performs upsert - updates existing record (Req 4.3)', async () => {
@@ -129,7 +129,7 @@ describe('DataWriter', () => {
 
       expect(sqliteEngine.countRows()).toBe(1);
       const rows = sqliteEngine.whereSearch("json_extract(data, '$.id') = 'u1'", 10);
-      expect(rows[0].data.value).toBe('new');
+      expect(rows[0]!.data.value).toBe('new');
     });
 
     it('throws on invalid input (Req 4.6)', async () => {

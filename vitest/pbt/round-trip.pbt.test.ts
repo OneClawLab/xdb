@@ -6,7 +6,8 @@ import { tmpdir } from 'node:os';
 import { DataWriter } from '../../src/data-writer.js';
 import { DataFinder } from '../../src/data-finder.js';
 import { SQLiteEngine } from '../../src/engines/sqlite-engine.js';
-import { PolicyRegistry, PolicyConfig } from '../../src/policy-registry.js';
+import { PolicyRegistry } from '../../src/policy-registry.js';
+import type { PolicyConfig } from '../../src/policy-registry.js';
 import type { Embedder } from '../../src/embedder.js';
 
 const registry = new PolicyRegistry();
@@ -94,7 +95,7 @@ describe('Property 13: 数据 round-trip 一致性', () => {
         expect(results).toHaveLength(1);
 
         // Extract the returned data, excluding system metadata
-        const returned = { ...results[0].data };
+        const returned = { ...results[0]!.data };
         delete returned._score;
         delete returned._engine;
 

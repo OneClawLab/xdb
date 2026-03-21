@@ -31,7 +31,7 @@ export function registerPolicyCommands(policy: Command): void {
           const fieldNames = Object.keys(p.fields);
           const fieldsStr = fieldNames.length > 0
             ? fieldNames.map((f) => {
-                const caps = p.fields[f].findCaps.join(', ');
+                const caps = p.fields[f]!.findCaps.join(', ');
                 return `${f} [${caps}]`;
               }).join('; ')
             : '(none)';

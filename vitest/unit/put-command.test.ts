@@ -51,7 +51,7 @@ describe('put command', () => {
         expect(engine.countRows()).toBe(1);
         const results = engine.whereSearch("json_extract(data, '$.id') = 'r1'", 10);
         expect(results).toHaveLength(1);
-        expect(results[0].data.msg).toBe('hello');
+        expect(results[0]!.data.msg).toBe('hello');
       } finally {
         engine.close();
       }
@@ -72,8 +72,8 @@ describe('put command', () => {
         expect(engine.countRows()).toBe(1);
         const results = engine.whereSearch('1=1', 10);
         expect(results).toHaveLength(1);
-        expect(results[0].data.id).toBeDefined();
-        expect(results[0].data.id).toMatch(
+        expect(results[0]!.data.id).toBeDefined();
+        expect(results[0]!.data.id).toMatch(
           /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
         );
       } finally {
@@ -174,7 +174,7 @@ describe('put command', () => {
         expect(engine.countRows()).toBe(1);
         const results = engine.whereSearch("json_extract(data, '$.id') = 'u1'", 10);
         expect(results).toHaveLength(1);
-        expect(results[0].data.msg).toBe('second');
+        expect(results[0]!.data.msg).toBe('second');
       } finally {
         engine.close();
       }

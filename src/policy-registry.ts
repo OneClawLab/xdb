@@ -80,7 +80,7 @@ export class PolicyRegistry {
       main: builtin.main,
       minor: builtin.minor,
       fields: deepCloneFields(builtin.fields),
-      autoIndex: builtin.autoIndex,
+      ...(builtin.autoIndex !== undefined ? { autoIndex: builtin.autoIndex } : {}),
     };
 
     // Merge params overrides (especially fields)
@@ -93,8 +93,7 @@ export class PolicyRegistry {
       }
       if (params.autoIndex !== undefined) {
         config.autoIndex = params.autoIndex as boolean;
-      }
-    }
+      }    }
 
     return config;
   }
@@ -127,7 +126,7 @@ export class PolicyRegistry {
       main: p.main,
       minor: p.minor,
       fields: deepCloneFields(p.fields),
-      autoIndex: p.autoIndex,
+      ...(p.autoIndex !== undefined ? { autoIndex: p.autoIndex } : {}),
     }));
   }
 }

@@ -5,8 +5,10 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { DataFinder } from '../../src/data-finder.js';
 import { DataWriter } from '../../src/data-writer.js';
-import { SQLiteEngine, SearchResult } from '../../src/engines/sqlite-engine.js';
-import { PolicyRegistry, PolicyConfig } from '../../src/policy-registry.js';
+import { SQLiteEngine } from '../../src/engines/sqlite-engine.js';
+import type { SearchResult } from '../../src/engines/sqlite-engine.js';
+import { PolicyRegistry } from '../../src/policy-registry.js';
+import type { PolicyConfig } from '../../src/policy-registry.js';
 import type { Embedder } from '../../src/embedder.js';
 
 const registry = new PolicyRegistry();
@@ -45,11 +47,19 @@ const arbDataPayload: fc.Arbitrary<Record<string, unknown>> = fc
   .map((entries) => Object.fromEntries(entries));
 
 /** Arbitrary SearchResult for Property 10 */
-const arbSearchResult: fc.Arbitrary<SearchResult> = fc.record({
-  data: arbDataPayload,
-  _score: arbScore,
-  _engine: arbEngine,
-});
+const arbSearchResult: fc.Arbitrary<SearchResult> = fc
+  .tuple(
+    arbDataPayload,
+    arbEngine,
+    arbScore,
+  )
+  .map(([data, _engine, _score]) => {
+    const result: SearchResult = { data, _engine };
+    if (_score !== undefined) {
+      result._score = _score;
+    }
+    return result;
+  });
 
 /** Arbitrary positive limit for Property 11 */
 const arbLimit = fc.integer({ min: 1, max: 15 });

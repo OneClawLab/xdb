@@ -170,7 +170,7 @@ describe('CollectionManager', () => {
 
       const result = await manager.list();
       expect(result).toHaveLength(1);
-      expect(result[0].name).toBe('valid');
+      expect(result[0]!.name).toBe('valid');
     });
   });
 

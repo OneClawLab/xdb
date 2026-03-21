@@ -117,8 +117,8 @@ describe('DataFinder', () => {
         { limit: 5, filter: undefined, column: 'content_vector' },
       );
       expect(results).toHaveLength(1);
-      expect(results[0]._engine).toBe('lancedb');
-      expect(results[0]._score).toBeDefined();
+      expect(results[0]!._engine).toBe('lancedb');
+      expect(results[0]!._score).toBeDefined();
     });
 
     it('passes --where as pre-filter to vectorSearch (Req 8.2)', async () => {
@@ -170,8 +170,8 @@ describe('DataFinder', () => {
       const results = await finder.find('hello', { match: true, limit: 10 });
 
       expect(results.length).toBeGreaterThanOrEqual(1);
-      expect(results[0]._engine).toBe('sqlite');
-      expect(results[0]._score).toBeDefined();
+      expect(results[0]!._engine).toBe('sqlite');
+      expect(results[0]!._score).toBeDefined();
     });
 
     it('uses ftsWhereSearch when --where is combined with --match (Req 8.3)', async () => {
@@ -192,7 +192,7 @@ describe('DataFinder', () => {
       });
 
       expect(results.length).toBe(1);
-      expect(results[0].data.id).toBe('r1');
+      expect(results[0]!.data.id).toBe('r1');
     });
 
     it('throws when collection has no match capability (Req 7.4)', async () => {
@@ -235,8 +235,8 @@ describe('DataFinder', () => {
       });
 
       expect(results).toHaveLength(1);
-      expect(results[0].data.status).toBe('active');
-      expect(results[0]._engine).toBe('sqlite');
+      expect(results[0]!.data.status).toBe('active');
+      expect(results[0]!._engine).toBe('sqlite');
     });
 
     it('falls back to lanceEngine.filterSearch when only LanceDB available (Req 8.6)', async () => {
@@ -251,7 +251,7 @@ describe('DataFinder', () => {
 
       expect(lanceEngine.filterSearch).toHaveBeenCalledWith("category = 'tech'", 10);
       expect(results).toHaveLength(1);
-      expect(results[0]._engine).toBe('lancedb');
+      expect(results[0]!._engine).toBe('lancedb');
     });
 
     it('throws when no engine is available', async () => {
@@ -307,9 +307,9 @@ describe('DataFinder', () => {
       const results = await finder.find('test', { match: true, limit: 10 });
 
       expect(results).toHaveLength(1);
-      expect(results[0]._engine).toBe('sqlite');
-      expect(typeof results[0]._score).toBe('number');
-      expect(results[0].data).toBeDefined();
+      expect(results[0]!._engine).toBe('sqlite');
+      expect(typeof results[0]!._score).toBe('number');
+      expect(results[0]!.data).toBeDefined();
     });
 
     it('returns results with _engine from where search', async () => {
@@ -323,7 +323,7 @@ describe('DataFinder', () => {
       const results = await finder.find(undefined, { where: '1=1', limit: 10 });
 
       expect(results).toHaveLength(1);
-      expect(results[0]._engine).toBe('sqlite');
+      expect(results[0]!._engine).toBe('sqlite');
     });
   });
 

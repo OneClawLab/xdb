@@ -143,12 +143,15 @@ export class LanceDBEngine {
           if (key.endsWith('_vector')) continue;
           data[key] = value;
         }
-        return {
+        const result: SearchResult = {
           data,
-          // Convert cosine distance [0,2] → cosine similarity [0,1]: 1 - distance/2
-          _score: row._distance != null ? 1 - row._distance / 2 : undefined,
           _engine: 'lancedb' as const,
         };
+        // Convert cosine distance [0,2] → cosine similarity [0,1]: 1 - distance/2
+        if (row._distance != null) {
+          result._score = 1 - (row._distance as number) / 2;
+        }
+        return result;
       });
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

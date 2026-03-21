@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as fc from 'fast-check';
-import { PolicyRegistry, PolicyConfig, FieldConfig } from '../../src/policy-registry.js';
+import { PolicyRegistry } from '../../src/policy-registry.js';
+import type { PolicyConfig, FieldConfig } from '../../src/policy-registry.js';
 import { XDBError } from '../../src/errors.js';
 
 const registry = new PolicyRegistry();

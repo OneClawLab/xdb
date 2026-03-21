@@ -23,9 +23,9 @@ export class Embedder {
       provider: providerConfig.name,
       apiKey,
       model,
-      baseUrl: providerConfig.baseUrl,
-      api: providerConfig.api,
-      providerOptions: providerConfig.providerOptions,
+      ...(providerConfig.baseUrl !== undefined ? { baseUrl: providerConfig.baseUrl } : {}),
+      ...(providerConfig.api !== undefined ? { api: providerConfig.api } : {}),
+      ...(providerConfig.providerOptions !== undefined ? { providerOptions: providerConfig.providerOptions } : {}),
     });
     try {
       const response = await client.embed({ texts: [text], model });
@@ -46,9 +46,9 @@ export class Embedder {
       provider: providerConfig.name,
       apiKey,
       model,
-      baseUrl: providerConfig.baseUrl,
-      api: providerConfig.api,
-      providerOptions: providerConfig.providerOptions,
+      ...(providerConfig.baseUrl !== undefined ? { baseUrl: providerConfig.baseUrl } : {}),
+      ...(providerConfig.api !== undefined ? { api: providerConfig.api } : {}),
+      ...(providerConfig.providerOptions !== undefined ? { providerOptions: providerConfig.providerOptions } : {}),
     });
     try {
       const response = await client.embed({ texts, model });

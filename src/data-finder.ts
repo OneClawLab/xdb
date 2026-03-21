@@ -60,7 +60,11 @@ export class DataFinder {
     const column = `${similarField}_vector`;
 
     const vector = await this.embedder.embed(query);
-    return this.lanceEngine!.vectorSearch(vector, { limit, filter: where, column });
+    return this.lanceEngine!.vectorSearch(vector, {
+      limit,
+      ...(where !== undefined ? { filter: where } : {}),
+      column,
+    });
   }
 
   /** --match: full-text search via SQLite FTS5 */

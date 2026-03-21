@@ -3,8 +3,10 @@ import * as fc from 'fast-check';
 import { mkdtemp, rm, readFile, writeFile, stat } from 'node:fs/promises';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { CollectionManager, CollectionMeta } from '../../src/collection-manager.js';
-import { PolicyRegistry, PolicyConfig, FieldConfig } from '../../src/policy-registry.js';
+import { CollectionManager } from '../../src/collection-manager.js';
+import type { CollectionMeta } from '../../src/collection-manager.js';
+import { PolicyRegistry } from '../../src/policy-registry.js';
+import type { PolicyConfig, FieldConfig } from '../../src/policy-registry.js';
 
 const registry = new PolicyRegistry();
 
@@ -113,7 +115,7 @@ describe('CollectionManager Property-Based Tests', () => {
             const overrideFields = params.fields as Record<string, FieldConfig>;
             for (const [fieldName, fieldConfig] of Object.entries(overrideFields)) {
               expect(merged.fields[fieldName]).toBeDefined();
-              expect(merged.fields[fieldName].findCaps).toEqual(fieldConfig.findCaps);
+              expect(merged.fields[fieldName]!.findCaps).toEqual(fieldConfig.findCaps);
             }
           }
           if (params.autoIndex !== undefined) {

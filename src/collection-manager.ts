@@ -92,7 +92,7 @@ export class CollectionManager {
           policy: `${meta.policy.main}/${meta.policy.minor}`,
           recordCount,
           sizeBytes,
-          embeddingDimension: meta.embeddingDimension,
+          ...(meta.embeddingDimension !== undefined ? { embeddingDimension: meta.embeddingDimension } : {}),
         });
       } catch {
         // Skip directories without valid meta

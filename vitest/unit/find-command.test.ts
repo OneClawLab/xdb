@@ -264,7 +264,7 @@ describe('find command', () => {
       const resultLines = output.trim().split('\n');
       expect(resultLines.length).toBe(1);
 
-      const obj = JSON.parse(resultLines[0]);
+      const obj = JSON.parse(resultLines[0]!);
       expect(obj.id).toBe('d1');
       expect(obj.content).toBe('TypeScript language');
     });

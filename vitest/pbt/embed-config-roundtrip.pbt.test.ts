@@ -24,18 +24,33 @@ const providerNameArb = fc
 
 const optionalStringArb = fc.option(fc.string({ minLength: 1, maxLength: 100 }), { nil: undefined });
 
-const providerConfigArb = fc.record({
-  name: providerNameArb,
-  apiKey: optionalStringArb,
-  baseUrl: optionalStringArb,
-  api: optionalStringArb,
-});
+const providerConfigArb = fc
+  .tuple(
+    providerNameArb,
+    optionalStringArb,
+    optionalStringArb,
+    optionalStringArb,
+  )
+  .map(([name, apiKey, baseUrl, api]) => {
+    const cfg: { name: string; apiKey?: string; baseUrl?: string; api?: string } = { name };
+    if (apiKey !== undefined) cfg.apiKey = apiKey;
+    if (baseUrl !== undefined) cfg.baseUrl = baseUrl;
+    if (api !== undefined) cfg.api = api;
+    return cfg;
+  });
 
-const xdbConfigArb: fc.Arbitrary<XdbConfig> = fc.record({
-  defaultEmbedProvider: optionalStringArb,
-  defaultEmbedModel: optionalStringArb,
-  providers: fc.array(providerConfigArb, { minLength: 0, maxLength: 5 }),
-});
+const xdbConfigArb: fc.Arbitrary<XdbConfig> = fc
+  .tuple(
+    optionalStringArb,
+    optionalStringArb,
+    fc.array(providerConfigArb, { minLength: 0, maxLength: 5 }),
+  )
+  .map(([defaultEmbedProvider, defaultEmbedModel, providers]) => {
+    const config: XdbConfig = { providers };
+    if (defaultEmbedProvider !== undefined) config.defaultEmbedProvider = defaultEmbedProvider;
+    if (defaultEmbedModel !== undefined) config.defaultEmbedModel = defaultEmbedModel;
+    return config;
+  });
 
 // ---------------------------------------------------------------------------
 // Helpers

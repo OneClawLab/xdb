@@ -87,7 +87,7 @@ export class DataWriter {
     for (let i = 0; i < records.length; i++) {
       try {
         this.validateRecord(records[i]);
-        let rec = records[i];
+        let rec = records[i]!;
         if (rec.id === undefined || rec.id === null) {
           rec = { ...rec, id: uuidv4() };
         }
@@ -123,7 +123,7 @@ export class DataWriter {
       for (const [field, texts] of textsPerField) {
         const vectors = await this.embedder.embedBatch(texts);
         if (vectors.length > 0) {
-          await this.reportDimension(vectors[0]);
+          await this.reportDimension(vectors[0]!);
         }
         vectorsPerField.set(field, vectors);
       }
@@ -132,7 +132,7 @@ export class DataWriter {
       for (let i = 0; i < prepared.length; i++) {
         const rec: Record<string, unknown> = { ...prepared[i] };
         for (const [field, vectors] of vectorsPerField) {
-          rec[`${field}_vector`] = new Float32Array(vectors[i]);
+          rec[`${field}_vector`] = new Float32Array(vectors[i]!);
         }
         vectorRecords.push(rec);
       }

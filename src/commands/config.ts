@@ -84,7 +84,7 @@ export async function executeConfig(
       fieldNames.length > 0
         ? fieldNames
             .map((f) => {
-              const caps = p.fields[f].findCaps.join(', ');
+              const caps = p.fields[f]!.findCaps.join(', ');
               return `${f} [${caps}]`;
             })
             .join('; ')

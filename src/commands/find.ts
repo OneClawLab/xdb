@@ -106,9 +106,9 @@ export async function executeFind(
 
     // 5. Execute find
     const results = await finder.find(query, {
-      similar: opts.similar,
-      match: opts.match,
-      where: opts.where,
+      ...(opts.similar !== undefined ? { similar: opts.similar } : {}),
+      ...(opts.match !== undefined ? { match: opts.match } : {}),
+      ...(opts.where !== undefined ? { where: opts.where } : {}),
       limit,
     });
 

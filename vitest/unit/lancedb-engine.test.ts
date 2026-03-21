@@ -77,7 +77,7 @@ describe('LanceDBEngine', () => {
 
       const rows = await engine.filterSearch("id = 'r1'", 10);
       expect(rows).toHaveLength(1);
-      expect(rows[0].data.tag).toBe('new');
+      expect(rows[0]!.data.tag).toBe('new');
     });
 
     it('handles mixed insert and update', async () => {
@@ -116,9 +116,9 @@ describe('LanceDBEngine', () => {
       const results = await engine.vectorSearch([0.9, 0.1, 0, 0], { limit: 2 });
       expect(results.length).toBeLessThanOrEqual(2);
       expect(results.length).toBeGreaterThanOrEqual(1);
-      expect(results[0]._engine).toBe('lancedb');
-      expect(typeof results[0]._score).toBe('number');
-      expect(results[0].data.id).toBe('v1');
+      expect(results[0]!._engine).toBe('lancedb');
+      expect(typeof results[0]!._score).toBe('number');
+      expect(results[0]!.data.id).toBe('v1');
     });
 
     it('applies pre-filter (Req 8.2)', async () => {
@@ -232,9 +232,9 @@ describe('LanceDBEngine', () => {
 
       const results = await engine.vectorSearch([1, 0, 0, 0], { limit: 10 });
       expect(results).toHaveLength(1);
-      expect(results[0]._engine).toBe('lancedb');
-      expect(typeof results[0]._score).toBe('number');
-      expect(results[0]._score).toBeGreaterThan(0);
+      expect(results[0]!._engine).toBe('lancedb');
+      expect(typeof results[0]!._score).toBe('number');
+      expect(results[0]!._score).toBeGreaterThan(0);
     });
 
     it('filterSearch results have _engine=lancedb and no _score', async () => {
@@ -245,8 +245,8 @@ describe('LanceDBEngine', () => {
 
       const results = await engine.filterSearch("id = 'doc1'", 10);
       expect(results).toHaveLength(1);
-      expect(results[0]._engine).toBe('lancedb');
-      expect(results[0]._score).toBeUndefined();
+      expect(results[0]!._engine).toBe('lancedb');
+      expect(results[0]!._score).toBeUndefined();
     });
   });
 
@@ -263,9 +263,9 @@ describe('LanceDBEngine', () => {
       await engine.upsert([original]);
       const results = await engine.filterSearch("id = 'rt1'", 1);
       expect(results).toHaveLength(1);
-      expect(results[0].data.id).toBe('rt1');
-      expect(results[0].data.name).toBe('test-record');
-      expect(results[0].data.count).toBe(42);
+      expect(results[0]!.data.id).toBe('rt1');
+      expect(results[0]!.data.name).toBe('test-record');
+      expect(results[0]!.data.count).toBe(42);
     });
   });
 });
