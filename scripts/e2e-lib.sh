@@ -27,6 +27,7 @@
 #   assert_json_array_length_lte [$file] N
 #   assert_first_stderr_line_is_json       # checks first line of $ERR is valid JSON
 #   json_field_from_stdin "field"          # reads stdin JSON, prints field value
+#   json_path_from_stdin "a.b.c"           # reads stdin JSON, prints value at dot-separated path
 #   summary_and_exit
 
 # ── Output helpers ────────────────────────────────────────────
@@ -221,6 +222,18 @@ require_bin() {
 json_field_from_stdin() {
   local field=$1
   node -e "process.stdout.write(JSON.parse(require('fs').readFileSync(0,'utf8'))['$field'] ?? '')" 2>/dev/null
+}
+
+# json_path_from_stdin <path>
+#   Reads JSON from stdin, prints the value at a dot-separated path (empty string if missing).
+#   Usage: VALUE=$(some_cmd | json_path_from_stdin "embed.provider")
+json_path_from_stdin() {
+  local path=$1
+  node -e "
+    const d = JSON.parse(require('fs').readFileSync(0,'utf8'));
+    const val = '$path'.split('.').reduce((o,k) => o?.[k], d);
+    process.stdout.write(val ?? '');
+  " 2>/dev/null
 }
 
 # ── Summary ───────────────────────────────────────────────────

@@ -4,9 +4,9 @@
 #
 # Prerequisites:
 #   - xdb installed: npm run build && npm link
-#   - pai installed and configured with an embedding provider:
-#       pai model default  (should show defaultEmbedProvider and defaultEmbedModel)
-#     If not configured:
+#   - Embed provider configured (xdb's own config takes priority over pai fallback):
+#       xdb config embed --set-provider <provider> --set-model <model>
+#     Or via pai fallback:
 #       pai model default --embed-provider <provider> --embed-model <model>
 #
 # Usage: bash test-e2e.sh
@@ -16,7 +16,7 @@ set -uo pipefail
 source "$(dirname "$0")/scripts/e2e-lib.sh"
 
 XDB="xdb"
-TEST_COL="e2e-test-$"
+TEST_COL="e2e-test"
 
 on_cleanup() {
   $XDB col rm "$TEST_COL" >/dev/null 2>&1 || true
@@ -28,15 +28,26 @@ setup_e2e
 section "Pre-flight"
 
 require_bin $XDB "run npm run build"
-require_cmd pai "install pai and configure embedding provider"
 
-EMBED_JSON=$(pai model default --json 2>/dev/null)
-EMBED_PROVIDER=$(echo "$EMBED_JSON" | json_field_from_stdin "defaultEmbedProvider")
-EMBED_MODEL=$(echo "$EMBED_JSON" | json_field_from_stdin "defaultEmbedModel")
+# Resolve embed config: prefer xdb's own config, fallback to pai
+XDB_CFG_JSON=$($XDB config --json 2>/dev/null)
+EMBED_PROVIDER=$(echo "$XDB_CFG_JSON" | json_path_from_stdin "embed.provider")
+EMBED_MODEL=$(echo "$XDB_CFG_JSON" | json_path_from_stdin "embed.model")
+
 if [[ -n "$EMBED_PROVIDER" && -n "$EMBED_MODEL" ]]; then
-  pass "Embed: $EMBED_PROVIDER / $EMBED_MODEL"
+  pass "Embed (xdb): $EMBED_PROVIDER / $EMBED_MODEL"
 else
-  fail "No embed provider/model — run: pai model default --embed-provider <p> --embed-model <m>"; exit 1
+  # Fallback: try pai
+  if command -v pai &>/dev/null; then
+    PAI_JSON=$(pai model default --json 2>/dev/null)
+    EMBED_PROVIDER=$(echo "$PAI_JSON" | json_field_from_stdin "defaultEmbedProvider")
+    EMBED_MODEL=$(echo "$PAI_JSON" | json_field_from_stdin "defaultEmbedModel")
+  fi
+  if [[ -n "$EMBED_PROVIDER" && -n "$EMBED_MODEL" ]]; then
+    pass "Embed (pai fallback): $EMBED_PROVIDER / $EMBED_MODEL"
+  else
+    fail "No embed provider/model — run: xdb config embed --set-provider <p> && xdb config embed --set-model <m>"; exit 1
+  fi
 fi
 
 # ══════════════════════════════════════════════════════════════
@@ -60,7 +71,7 @@ assert_exit0
 section "3. col list"
 run_cmd $XDB col list
 assert_exit0
-assert_contains "e2e-test-[$]"
+assert_contains "e2e-test"
 
 # ══════════════════════════════════════════════════════════════
 # 4. col info
@@ -136,6 +147,6 @@ section "12. col rm"
 run_cmd $XDB col rm "$TEST_COL"
 assert_exit0
 run_cmd $XDB col list
-assert_not_contains "e2e-test-[$]"
+assert_not_contains "e2e-test"
 
 summary_and_exit
