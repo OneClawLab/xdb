@@ -32,3 +32,7 @@ vitest/unit/commands/col.test.ts        ❌ no subdirectories
 vitest/pbt/config-roundtrip.pbt.test.ts ✅
 vitest/pbt/property-1-foo.test.ts       ❌ use .pbt.test.ts suffix, no numbering prefix
 ```
+
+# repo-utils
+
+when required, test files must use `os.ts`/`path.ts` under `src/repo-utils`， not `node:path` or node:node:child_process` directly.
