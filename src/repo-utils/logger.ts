@@ -1,5 +1,6 @@
-import * as fs from 'node:fs';
-import * as path from 'node:path';
+import { createWriteStream } from 'node:fs';
+import { path } from './path.js';
+import { mkdirSync, readFileSync, renameSync } from './fs.js';
 
 export type LogLevel = 'INFO' | 'WARN' | 'ERROR' | 'DEBUG';
 
@@ -29,7 +30,7 @@ export function formatRotationTimestamp(date: Date): string {
 
 function countLines(filePath: string): number {
   try {
-    const content = fs.readFileSync(filePath, 'utf8');
+    const content = readFileSync(filePath, 'utf8');
     if (content.length === 0) return 0;
     const lines = content.split('\n');
     return lines[lines.length - 1] === '' ? lines.length - 1 : lines.length;
@@ -52,16 +53,16 @@ export async function createFileLogger(
 ): Promise<Logger> {
   const logFile = path.join(logDir, `${logName}.log`);
 
-  fs.mkdirSync(logDir, { recursive: true });
+  mkdirSync(logDir, { recursive: true });
 
   // Rotate on startup if file exists and is non-empty, or if maxLines exceeded
   const lineCount = countLines(logFile);
   if (lineCount > 0) {
     const ts = formatRotationTimestamp(new Date());
-    fs.renameSync(logFile, path.join(logDir, `${logName}-${ts}.log`));
+    renameSync(logFile, path.join(logDir, `${logName}-${ts}.log`));
   }
 
-  let stream = fs.createWriteStream(logFile, { flags: 'a', encoding: 'utf8' });
+  let stream = createWriteStream(path.toNative(logFile), { flags: 'a', encoding: 'utf8' });
   await new Promise<void>((resolve, reject) => {
     stream.on('open', () => resolve());
     stream.on('error', reject);
@@ -72,8 +73,8 @@ export async function createFileLogger(
   function rotate(): void {
     const ts = formatRotationTimestamp(new Date());
     stream.end();
-    fs.renameSync(logFile, path.join(logDir, `${logName}-${ts}.log`));
-    stream = fs.createWriteStream(logFile, { flags: 'a', encoding: 'utf8' });
+    renameSync(logFile, path.join(logDir, `${logName}-${ts}.log`));
+    stream = createWriteStream(path.toNative(logFile), { flags: 'a', encoding: 'utf8' });
     currentLines = 0;
   }
 

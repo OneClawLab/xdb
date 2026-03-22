@@ -114,6 +114,19 @@ const PathUtils = {
     if (i <= 0) return "";
     return base.slice(i);
   },
+
+  /**
+   * Convert a POSIX-style path back to the OS-native format.
+   * On Windows (Git Bash): /c/foo → C:\foo
+   * On POSIX systems: returns the path unchanged.
+   * Use this before passing paths to Node.js fs / child_process / native addons.
+   */
+  toNative(p: string): string {
+    if (process.platform !== 'win32') return p;
+    return p
+      .replace(/^\/([A-Za-z])(?=\/|$)/, (_, d: string) => `${d.toUpperCase()}:`)
+      .replace(/\//g, '\\');
+  },
 };
 
 export const path = PathUtils;

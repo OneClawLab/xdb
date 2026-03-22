@@ -20,17 +20,6 @@ const execFileAsync = promisify(execFile);
  */
 const IS_WIN32 = process.platform === 'win32';
 
-/**
- * Base spawn/execFile options that work correctly on all platforms.
- *
- * `shell: true` on Windows is required for npm-installed commands (.cmd wrappers).
- * On non-Windows it is unnecessary and slightly slower, so we leave it false.
- * `windowsHide: true` suppresses the console window flash on Windows.
- */
-const BASE_SPAWN_OPTIONS: Pick<SpawnOptions, 'shell' | 'windowsHide'> = {
-  shell: IS_WIN32,
-  windowsHide: true,
-};
 
 /**
  * Check if a command exists in the system PATH.
@@ -65,13 +54,69 @@ export async function execCommand(
   timeoutMs = 5000,
   maxBufferMB = 1
 ): Promise<{ stdout: string; stderr: string }> {
+  if (IS_WIN32) {
+    // On Windows, spawn + shell:true goes through cmd.exe which needs explicit
+    // quoting for arguments containing spaces. We quote such args ourselves
+    // and use windowsVerbatimArguments to prevent Node from re-quoting.
+    const quotedArgs = args.map(a => {
+      if (!/[ "\t]/.test(a)) return a;
+      // Escape inner double quotes and wrap in double quotes
+      return `"${a.replace(/"/g, '\\"')}"`;
+    });
+    return new Promise((resolve, reject) => {
+      const proc = spawn(command, quotedArgs, {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        shell: true,
+        windowsHide: true,
+        windowsVerbatimArguments: true,
+      });
+      const stdoutChunks: Buffer[] = [];
+      const stderrChunks: Buffer[] = [];
+      let stdoutLen = 0;
+      let stderrLen = 0;
+      const maxBytes = maxBufferMB * 1024 * 1024;
+
+      proc.stdout!.on('data', (chunk: Buffer) => {
+        stdoutLen += chunk.length;
+        if (stdoutLen <= maxBytes) stdoutChunks.push(chunk);
+      });
+      proc.stderr!.on('data', (chunk: Buffer) => {
+        stderrLen += chunk.length;
+        if (stderrLen <= maxBytes) stderrChunks.push(chunk);
+      });
+
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      if (timeoutMs > 0) {
+        timer = setTimeout(() => {
+          proc.kill('SIGKILL');
+          reject(new Error(`${command} timed out after ${timeoutMs}ms`));
+        }, timeoutMs);
+      }
+
+      proc.on('error', (err) => {
+        if (timer) clearTimeout(timer);
+        reject(err);
+      });
+
+      proc.on('close', (code) => {
+        if (timer) clearTimeout(timer);
+        const stdout = Buffer.concat(stdoutChunks).toString('utf8');
+        const stderr = Buffer.concat(stderrChunks).toString('utf8');
+        if (code === 0) {
+          resolve({ stdout, stderr });
+        } else {
+          reject(new Error(`${command} exited with code ${code}: ${stderr}`));
+        }
+      });
+    });
+  }
   const { stdout, stderr } = await execFileAsync(command, args, {
     encoding: 'utf8',
     timeout: timeoutMs,
     killSignal: 'SIGKILL',
     maxBuffer: maxBufferMB * 1024 * 1024,
     windowsHide: true,
-    shell: IS_WIN32,
+    shell: false,
   });
   return { stdout, stderr };
 }
