@@ -41,7 +41,9 @@ function countLines(filePath: string): number {
 
 /**
  * Creates a file-based Logger that writes to <logDir>/<logName>.log.
- * Rotates when line count exceeds maxLines (default 10000).
+ * Rotation policy:
+ *   - Always rotates on startup if the log file exists and is non-empty.
+ *   - Also rotates mid-session when line count exceeds maxLines (default 10000).
  */
 export async function createFileLogger(
   logDir: string,
@@ -52,20 +54,33 @@ export async function createFileLogger(
 
   fs.mkdirSync(logDir, { recursive: true });
 
+  // Rotate on startup if file exists and is non-empty, or if maxLines exceeded
   const lineCount = countLines(logFile);
-  if (lineCount >= maxLines) {
+  if (lineCount > 0) {
     const ts = formatRotationTimestamp(new Date());
     fs.renameSync(logFile, path.join(logDir, `${logName}-${ts}.log`));
   }
 
-  const stream = fs.createWriteStream(logFile, { flags: 'a', encoding: 'utf8' });
+  let stream = fs.createWriteStream(logFile, { flags: 'a', encoding: 'utf8' });
   await new Promise<void>((resolve, reject) => {
     stream.on('open', () => resolve());
     stream.on('error', reject);
   });
 
+  let currentLines = 0;
+
+  function rotate(): void {
+    const ts = formatRotationTimestamp(new Date());
+    stream.end();
+    fs.renameSync(logFile, path.join(logDir, `${logName}-${ts}.log`));
+    stream = fs.createWriteStream(logFile, { flags: 'a', encoding: 'utf8' });
+    currentLines = 0;
+  }
+
   function writeLine(level: LogLevel, message: string): void {
+    if (currentLines >= maxLines) rotate();
     stream.write(formatLogLine(level, message) + '\n');
+    currentLines++;
   }
 
   return {
