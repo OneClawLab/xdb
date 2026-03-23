@@ -236,6 +236,53 @@ json_path_from_stdin() {
   " 2>/dev/null
 }
 
+# ── Async wait helper ────────────────────────────────────────
+# wait_for <desc> <timeout_secs> <bash_check_expr> [diag_cmd...]
+#   Polls every 1s until <bash_check_expr> is true or timeout.
+#   On timeout: dumps diag output (remaining args as a command), then calls fail().
+#   On success: calls pass().
+#
+# Usage:
+#   wait_for "inbox has event" 5 \
+#     'thread peek --thread "$AGENT_DIR/inbox" --last-event-id 0 2>/dev/null | grep -q .'
+#
+#   wait_for "reply in thread" 60 \
+#     'thread peek --thread "$THREAD_PATH" --last-event-id 0 2>/dev/null | grep -q "\"source\":\"self\""' \
+#     -- "tail -20 $NOTIFIER_LOG" "tail -20 $AGENT_LOG"
+#
+# Diag commands are separated by '--' and each is a quoted string.
+wait_for() {
+  local desc=$1 timeout=$2 check=$3
+  shift 3
+
+  # collect diag commands (everything after optional '--')
+  local diag_cmds=()
+  local in_diag=0
+  for arg in "$@"; do
+    if [[ "$arg" == "--" ]]; then in_diag=1; continue; fi
+    [[ $in_diag -eq 1 ]] && diag_cmds+=("$arg")
+  done
+
+  local i
+  for i in $(seq 1 "$timeout"); do
+    sleep 1
+    if eval "$check" 2>/dev/null; then
+      pass "$desc (${i}s)"
+      return 0
+    fi
+  done
+
+  # timeout — dump diagnostics
+  printf "\033[33m  ⚠ DIAG for: %s\033[0m\n" "$desc"
+  for cmd in "${diag_cmds[@]}"; do
+    printf "\033[33m  $ %s\033[0m\n" "$cmd"
+    eval "$cmd" 2>&1 | sed 's/^/    /' || true
+  done
+
+  fail "$desc (timeout ${timeout}s)"
+  return 1
+}
+
 # ── Summary ───────────────────────────────────────────────────
 summary_and_exit() {
   section "Results"

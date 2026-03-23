@@ -1,25 +1,50 @@
+/**
+ * os.ts — cross-platform shell command utilities.
+ *
+ * ## 背景：Windows + MSYS2/Git Bash 环境下的命令执行问题
+ *
+ * 本工程假定 Windows 上已安装 Bash（MSYS2 / Git Bash / Cygwin）。
+ * Node.js 进程本身是 Windows 原生进程（process.platform === 'win32'），
+ * 但我们不使用 cmd.exe / PowerShell，原因如下：
+ *
+ *   1. npm link 安装的命令在 Windows 上是 .cmd wrapper，
+ *      execFile('thread', [...]) 直接调用会找不到（没有 .cmd 后缀）。
+ *
+ *   2. cmd.exe 对参数里的引号处理与 POSIX shell 不同，
+ *      JSON 内容（如 '{"text":"hello"}'）传入后会被破坏。
+ *
+ *   3. 部分命令（如 notifier）的 executor 用 sh -c 执行任务，
+ *      命令字符串里的路径必须是 POSIX 风格（/c/Users/...），
+ *      cmd.exe 无法识别这类路径。
+ *
+ * 解决方案：Windows 上统一通过 sh -c 调用命令，使用 POSIX 单引号转义参数。
+ *
+ * ## 路径注意事项
+ *
+ * execCommand 的 args 里如果包含路径，应传入 POSIX 风格路径（/c/Users/...）。
+ * sh -c 能识别 POSIX 路径，但不能识别 Windows 反斜杠路径。
+ * 不要在 args 里调用 path.toNative()，那会破坏路径。
+ *
+ * ## which vs where
+ *
+ * commandExists 使用 `which`（bash 内建 / coreutils），在所有平台都可用。
+ * 不要用 `where`，那是 cmd.exe 的命令，在 bash 里不存在。
+ */
+
 import { exec, execFile, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { SpawnOptions } from 'node:child_process';
 
 const execAsync = promisify(exec);
-
-// async version of execFile from node:child_process
 const execFileAsync = promisify(execFile);
 
 /**
  * Whether we are running on Windows.
  *
- * On Windows we always assume bash is available (Git Bash / MSYS2 / Cygwin / WSL2).
+ * On Windows we always assume bash is available (Git Bash / MSYS2 / Cygwin).
  * cmd.exe / PowerShell are NOT supported.
- *
- * Implications:
- *  - `which` works everywhere (bash built-in / coreutils), never use `where`.
- *  - npm-installed commands are .cmd wrappers on Windows; `shell: true` is
- *    required so Node can resolve them via the shell.
  */
 const IS_WIN32 = process.platform === 'win32';
-
 
 /**
  * Check if a command exists in the system PATH.
@@ -43,10 +68,22 @@ export async function commandExists(name: string): Promise<boolean> {
 /**
  * Execute an external command and capture its output.
  * Throws on non-zero exit code or timeout.
- * @param command  - The command to run (must be on PATH).
- * @param args     - Argument list.
- * @param timeoutMs - Optional timeout in milliseconds (0 = no timeout).
- * @param maxBufferMB - Max stdout buffer in MB (default 1), will error if exceeded
+ *
+ * @param command   - The command to run (must be on PATH).
+ * @param args      - Argument list. Paths must be POSIX-style (/c/Users/...) —
+ *                    do NOT call path.toNative() on them; sh cannot read Windows paths.
+ * @param timeoutMs - Timeout in milliseconds (0 = no timeout). Default: 5000.
+ * @param maxBufferMB - Max stdout/stderr buffer in MB. Default: 1.
+ *
+ * ## Windows 实现说明
+ *
+ * 使用 spawn('sh', ['-c', cmd]) 而非 execFile + cmd.exe，原因：
+ *   - npm link 的命令是 .cmd wrapper，需要 shell 解析
+ *   - cmd.exe 会破坏参数里含特殊字符的内容（JSON、引号等）
+ *   - sh -c 能正确识别 POSIX 路径（/c/Users/...）
+ *
+ * 参数用 POSIX 单引号转义：每个 arg 包裹在单引号内，
+ * arg 内部的单引号用 '\'' 转义（结束引号 + 字面单引号 + 重新开始引号）。
  */
 export async function execCommand(
   command: string,
@@ -55,20 +92,12 @@ export async function execCommand(
   maxBufferMB = 1
 ): Promise<{ stdout: string; stderr: string }> {
   if (IS_WIN32) {
-    // On Windows, spawn + shell:true goes through cmd.exe which needs explicit
-    // quoting for arguments containing spaces. We quote such args ourselves
-    // and use windowsVerbatimArguments to prevent Node from re-quoting.
-    const quotedArgs = args.map(a => {
-      if (!/[ "\t]/.test(a)) return a;
-      // Escape inner double quotes and wrap in double quotes
-      return `"${a.replace(/"/g, '\\"')}"`;
-    });
+    const shArgs = args.map(a => `'${a.replace(/'/g, "'\\''")}'`);
+    const shCmd = [command, ...shArgs].join(' ');
     return new Promise((resolve, reject) => {
-      const proc = spawn(command, quotedArgs, {
+      const proc = spawn('sh', ['-c', shCmd], {
         stdio: ['ignore', 'pipe', 'pipe'],
-        shell: true,
         windowsHide: true,
-        windowsVerbatimArguments: true,
       });
       const stdoutChunks: Buffer[] = [];
       const stderrChunks: Buffer[] = [];
@@ -125,12 +154,15 @@ export async function execCommand(
  * Spawn an external command and pipe data through stdin/stdout.
  * Returns a promise that resolves with stdout, rejects on non-zero exit.
  *
- * @param command  - The command to run (must be on PATH).
- * @param args     - Argument list.
- * @param stdin    - Optional data to write to stdin.
- * @param timeoutMs - Optional timeout in milliseconds (0 = no timeout).
- * @param maxStdoutMB - Max stdout buffer in MB (default 1), will be truncated if exceeded
- * @param maxStderrMB - Max stderr buffer in MB (default 1), will be truncated if exceeded
+ * @param command     - The command to run (must be on PATH).
+ * @param args        - Argument list.
+ * @param stdin       - Optional data to write to stdin.
+ * @param timeoutMs   - Timeout in milliseconds (0 = no timeout).
+ * @param maxStdoutMB - Max stdout buffer in MB (default 1).
+ * @param maxStderrMB - Max stderr buffer in MB (default 1).
+ *
+ * 注意：Windows 上使用 shell: true（cmd.exe）。
+ * 如果需要传递含特殊字符的参数（如 JSON），请改用 execCommand。
  */
 export function spawnCommand(
   command: string,
@@ -158,15 +190,11 @@ export function spawnCommand(
 
     proc.stdout!.on('data', (chunk: Buffer) => {
       stdoutLen += chunk.length;
-      if (stdoutLen <= maxStdoutMB * 1024 * 1024) {
-        stdoutChunks.push(chunk);
-      }
+      if (stdoutLen <= maxStdoutMB * 1024 * 1024) stdoutChunks.push(chunk);
     });
     proc.stderr!.on('data', (chunk: Buffer) => {
       stderrLen += chunk.length;
-      if (stderrLen <= maxStderrMB * 1024 * 1024) {
-        stderrChunks.push(chunk);
-      }
+      if (stderrLen <= maxStderrMB * 1024 * 1024) stderrChunks.push(chunk);
     });
 
     proc.on('error', (err) => {
@@ -202,8 +230,11 @@ export function spawnCommand(
 
 /**
  * Execute a full shell command string (e.g. "npm install -g foo@1.0.0").
- * Uses /bin/sh on Unix, cmd.exe on Windows.
+ * Uses /bin/sh on Unix, the default shell on Windows.
  * Throws on non-zero exit code.
+ *
+ * 适用于需要 shell 特性（管道、重定向、glob）的场景。
+ * 如果只是调用一个命令加参数，优先用 execCommand（更安全，参数不经过 shell 解析）。
  */
 export async function execShell(
   command: string,
