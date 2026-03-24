@@ -31,7 +31,7 @@
  * 不要用 `where`，那是 cmd.exe 的命令，在 bash 里不存在。
  */
 
-import { exec, execFile, spawn } from 'node:child_process';
+import { exec, execFile, execSync, spawn } from 'node:child_process';
 import { promisify } from 'node:util';
 import type { SpawnOptions } from 'node:child_process';
 
@@ -69,11 +69,26 @@ export async function commandExists(name: string): Promise<boolean> {
  * Execute an external command and capture its output.
  * Throws on non-zero exit code or timeout.
  *
- * @param command   - The command to run (must be on PATH).
- * @param args      - Argument list. Paths must be POSIX-style (/c/Users/...) —
- *                    do NOT call path.toNative() on them; sh cannot read Windows paths.
- * @param timeoutMs - Timeout in milliseconds (0 = no timeout). Default: 5000.
- * @param maxBufferMB - Max stdout/stderr buffer in MB. Default: 1.
+ * @param command      - The command to run (must be on PATH).
+ * @param args         - Argument list. Paths must be POSIX-style (/c/Users/...) —
+ *                       do NOT call path.toNative() on them; sh cannot read Windows paths.
+ * @param timeoutMs    - Timeout in milliseconds (0 = no timeout). Default: 5000.
+ * @param maxBufferMB  - Max stdout/stderr buffer in MB. Default: 1.
+ * @param gracefulMs   - On timeout: wait this many ms after SIGTERM before sending SIGKILL.
+ *                       Default: 5000. Gives the child process time to clean up (e.g. pai chat
+ *                       killing its bash_exec process group). Windows always uses taskkill /F /T
+ *                       (no graceful period — SIGTERM is not reliably supported on Windows).
+ *
+ * ## Kill sequence on timeout
+ *
+ * Unix:
+ *   1. Send SIGTERM — child can catch this and clean up (e.g. kill sub-process groups)
+ *   2. Wait `gracefulMs`
+ *   3. If still alive, send SIGKILL
+ *
+ * Windows:
+ *   taskkill /F /T — forcefully terminates the entire process tree immediately.
+ *   There is no graceful equivalent on Windows.
  *
  * ## Windows 实现说明
  *
@@ -89,65 +104,82 @@ export async function execCommand(
   command: string,
   args: string[] = [],
   timeoutMs = 5000,
-  maxBufferMB = 1
+  maxBufferMB = 1,
+  gracefulMs = 5000,
 ): Promise<{ stdout: string; stderr: string }> {
-  if (IS_WIN32) {
-    const shArgs = args.map(a => `'${a.replace(/'/g, "'\\''")}'`);
-    const shCmd = [command, ...shArgs].join(' ');
-    return new Promise((resolve, reject) => {
-      const proc = spawn('sh', ['-c', shCmd], {
-        stdio: ['ignore', 'pipe', 'pipe'],
-        windowsHide: true,
-      });
-      const stdoutChunks: Buffer[] = [];
-      const stderrChunks: Buffer[] = [];
-      let stdoutLen = 0;
-      let stderrLen = 0;
-      const maxBytes = maxBufferMB * 1024 * 1024;
+  // Build the spawn arguments — same logic for both platforms, only the
+  // outer shell wrapper differs on Windows.
+  const spawnCmd = IS_WIN32 ? 'sh' : command;
+  const spawnArgs = IS_WIN32
+    ? ['-c', [command, ...args.map(a => `'${a.replace(/'/g, "'\\''")}'`)].join(' ')]
+    : args;
 
-      proc.stdout!.on('data', (chunk: Buffer) => {
-        stdoutLen += chunk.length;
-        if (stdoutLen <= maxBytes) stdoutChunks.push(chunk);
-      });
-      proc.stderr!.on('data', (chunk: Buffer) => {
-        stderrLen += chunk.length;
-        if (stderrLen <= maxBytes) stderrChunks.push(chunk);
-      });
-
-      let timer: ReturnType<typeof setTimeout> | undefined;
-      if (timeoutMs > 0) {
-        timer = setTimeout(() => {
-          proc.kill('SIGKILL');
-          reject(new Error(`${command} timed out after ${timeoutMs}ms`));
-        }, timeoutMs);
-      }
-
-      proc.on('error', (err) => {
-        if (timer) clearTimeout(timer);
-        reject(err);
-      });
-
-      proc.on('close', (code) => {
-        if (timer) clearTimeout(timer);
-        const stdout = Buffer.concat(stdoutChunks).toString('utf8');
-        const stderr = Buffer.concat(stderrChunks).toString('utf8');
-        if (code === 0) {
-          resolve({ stdout, stderr });
-        } else {
-          reject(new Error(`${command} exited with code ${code}: ${stderr}`));
-        }
-      });
+  return new Promise((resolve, reject) => {
+    const proc = spawn(spawnCmd, spawnArgs, {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
     });
-  }
-  const { stdout, stderr } = await execFileAsync(command, args, {
-    encoding: 'utf8',
-    timeout: timeoutMs,
-    killSignal: 'SIGKILL',
-    maxBuffer: maxBufferMB * 1024 * 1024,
-    windowsHide: true,
-    shell: false,
+
+    const stdoutChunks: Buffer[] = [];
+    const stderrChunks: Buffer[] = [];
+    let stdoutLen = 0;
+    let stderrLen = 0;
+    const maxBytes = maxBufferMB * 1024 * 1024;
+
+    proc.stdout!.on('data', (chunk: Buffer) => {
+      stdoutLen += chunk.length;
+      if (stdoutLen <= maxBytes) stdoutChunks.push(chunk);
+    });
+    proc.stderr!.on('data', (chunk: Buffer) => {
+      stderrLen += chunk.length;
+      if (stderrLen <= maxBytes) stderrChunks.push(chunk);
+    });
+
+    let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
+    let gracefulTimer: ReturnType<typeof setTimeout> | undefined;
+    let timedOut = false;
+
+    const killGracefully = (): void => {
+      timedOut = true;
+      if (IS_WIN32) {
+        // Windows: no reliable SIGTERM — use taskkill to kill the whole tree
+        if (proc.pid !== undefined) {
+          try { execSync(`taskkill /F /T /PID ${proc.pid}`, { stdio: 'ignore' }); } catch { /* already dead */ }
+        }
+        try { proc.kill('SIGKILL'); } catch { /* already dead */ }
+      } else {
+        // Unix: SIGTERM first, then SIGKILL after gracefulMs
+        try { proc.kill('SIGTERM'); } catch { /* already dead */ }
+        gracefulTimer = setTimeout(() => {
+          try { proc.kill('SIGKILL'); } catch { /* already dead */ }
+        }, gracefulMs);
+      }
+      reject(new Error(`${command} timed out after ${timeoutMs}ms`));
+    };
+
+    if (timeoutMs > 0) {
+      timeoutTimer = setTimeout(killGracefully, timeoutMs);
+    }
+
+    proc.on('error', (err) => {
+      clearTimeout(timeoutTimer);
+      clearTimeout(gracefulTimer);
+      reject(err);
+    });
+
+    proc.on('close', (code) => {
+      clearTimeout(timeoutTimer);
+      clearTimeout(gracefulTimer);
+      if (timedOut) return; // already rejected
+      const stdout = Buffer.concat(stdoutChunks).toString('utf8');
+      const stderr = Buffer.concat(stderrChunks).toString('utf8');
+      if (code === 0) {
+        resolve({ stdout, stderr });
+      } else {
+        reject(new Error(`${command} exited with code ${code}: ${stderr}`));
+      }
+    });
   });
-  return { stdout, stderr };
 }
 
 /**
