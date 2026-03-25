@@ -1,6 +1,6 @@
 {
   "name": "@theclawlab/xdb",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Intent-driven data hub CLI for AI agents",
   "type": "module",
   "bin": {
