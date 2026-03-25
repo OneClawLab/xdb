@@ -42,6 +42,7 @@ export function registerFindCommand(program: Command): void {
     .description('Search data in a collection')
     .option('-s, --similar', 'Semantic similarity search')
     .option('-m, --match', 'Full-text search')
+    .option('-H, --hybrid', 'Hybrid search (vector + FTS with RRF fusion)')
     .option('-w, --where <sql>', 'SQL WHERE clause for filtering')
     .option('-l, --limit <n>', 'Maximum number of results', '10')
     .option('--json', 'Output as JSONL (machine-readable)')
@@ -49,7 +50,7 @@ export function registerFindCommand(program: Command): void {
       async (
         collection: string,
         query: string | undefined,
-        opts: { similar?: boolean; match?: boolean; where?: string; limit: string; json?: boolean },
+        opts: { similar?: boolean; match?: boolean; hybrid?: boolean; where?: string; limit: string; json?: boolean },
       ) => {
         try {
           await executeFind(getDataRoot(), collection, query, opts);
@@ -64,7 +65,7 @@ export async function executeFind(
   dataRoot: string,
   collection: string,
   query: string | undefined,
-  opts: { similar?: boolean; match?: boolean; where?: string; limit: string; json?: boolean },
+  opts: { similar?: boolean; match?: boolean; hybrid?: boolean; where?: string; limit: string; json?: boolean },
 ): Promise<void> {
   // 1. Load collection meta
   const manager = new CollectionManager(dataRoot);
@@ -79,7 +80,7 @@ export async function executeFind(
   }
 
   // 2. If no query positional arg, read from stdin (Req 6.2)
-  if (query === undefined && (opts.similar || opts.match)) {
+  if (query === undefined && (opts.similar || opts.match || opts.hybrid)) {
     const stdinText = await readStdin();
     const trimmed = stdinText.trim();
     if (trimmed.length > 0) {
@@ -108,6 +109,7 @@ export async function executeFind(
     const results = await finder.find(query, {
       ...(opts.similar !== undefined ? { similar: opts.similar } : {}),
       ...(opts.match !== undefined ? { match: opts.match } : {}),
+      ...(opts.hybrid !== undefined ? { hybrid: opts.hybrid } : {}),
       ...(opts.where !== undefined ? { where: opts.where } : {}),
       limit,
     });
@@ -127,6 +129,7 @@ export async function executeFind(
           ...result.data,
           _score: result._score,
           _engine: result._engine,
+          ...(result._scores !== undefined ? { _scores: result._scores } : {}),
         };
         process.stdout.write(JSON.stringify(output) + '\n');
       }

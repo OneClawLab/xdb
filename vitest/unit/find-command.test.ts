@@ -317,5 +317,60 @@ describe('find command', () => {
       expect(findCmd).toBeDefined();
       expect(findCmd!.description()).toBe('Search data in a collection');
     });
+
+    it('registers --hybrid flag on find command', async () => {
+      const { Command } = await import('commander');
+      const { registerFindCommand } = await import('../../src/commands/find.js');
+
+      const program = new Command();
+      program.exitOverride();
+      registerFindCommand(program);
+
+      const findCmd = program.commands.find((c) => c.name() === 'find');
+      const options = findCmd!.options.map((o) => o.long);
+      expect(options).toContain('--hybrid');
+    });
+  });
+
+  describe('--hybrid (FTS-only collection, auto-fallback to --match)', () => {
+    it('hybrid flag on FTS-only collection falls back to match results', async () => {
+      const manager = new CollectionManager(tmpDir);
+      const policy = registry.resolve('hybrid/knowledge-base');
+      await manager.init('hybrid-kb', policy);
+
+      const colPath = join(tmpDir, 'collections', 'hybrid-kb');
+      const sqlite = SQLiteEngine.open(colPath);
+      sqlite.initSchema(policy);
+      sqlite.upsert([
+        { id: 'd1', content: 'TypeScript is great' },
+        { id: 'd2', content: 'Python is popular' },
+      ]);
+      sqlite.close();
+
+      const lines: string[] = [];
+      const stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
+        lines.push(String(chunk));
+        return true;
+      });
+
+      // hybrid/knowledge-base policy but no LanceDB data yet → vector engine is deferred
+      // The command should still return FTS results (degraded mode)
+      try {
+        await executeFind(tmpDir, 'hybrid-kb', 'TypeScript', {
+          hybrid: true,
+          limit: '10',
+          json: true,
+        });
+      } finally {
+        stdoutSpy.mockRestore();
+      }
+
+      const output = lines.join('');
+      // Should have at least one result (either hybrid or fallback)
+      expect(output.trim().length).toBeGreaterThan(0);
+      const resultLines = output.trim().split('\n');
+      const ids = resultLines.map((l) => JSON.parse(l).id as string);
+      expect(ids).toContain('d1');
+    });
   });
 });

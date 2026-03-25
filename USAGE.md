@@ -214,6 +214,36 @@ echo "database optimization" | xdb find my-docs --similar
 xdb find my-docs "tar compression" --match
 ```
 
+### 混合检索（--hybrid）
+
+同时执行向量搜索和全文检索，通过 Reciprocal Rank Fusion (RRF) 算法融合排名，适合 `hybrid` policy 的集合：
+
+```bash
+xdb find my-docs "how to compress files" --hybrid
+xdb find my-docs "tar compression" --hybrid --limit 5
+```
+
+**自动默认行为：** 对于 `hybrid/knowledge-base` 等 hybrid policy 的集合，提供 query 时无需显式传 `--hybrid`，会自动使用混合检索：
+
+```bash
+# 等同于 --hybrid（hybrid policy 下自动生效）
+xdb find my-docs "compress files"
+```
+
+**降级行为：** 当某一引擎不可用时自动降级：
+- 只有向量引擎 → 降级为 `--similar`
+- 只有 FTS 引擎 → 降级为 `--match`
+
+**JSON 输出包含详细分数：**
+
+```json
+{"id":"doc1","content":"...","_score":0.0324,"_engine":"hybrid","_scores":{"vector":0.95,"fts":0.87,"final":0.0324,"sources":["vector","fts"],"rank":{"vector":1,"fts":2}}}
+```
+
+- `_score`: RRF 融合分数（越高越相关）
+- `_scores.sources`: 该结果来自哪些引擎
+- `_scores.rank`: 各引擎中的排名（1-based）
+
 ### 条件过滤（--where）
 
 SQL WHERE 子句，作用于 SQLite 的 records 表：
@@ -231,6 +261,12 @@ xdb find my-docs --where "json_extract(data, '$.priority') > 5" --limit 20
 xdb find my-docs "compression" --match --where "json_extract(data, '$.category') = 'archive'"
 ```
 
+`--hybrid` 也支持 `--where` 作为预过滤：
+
+```bash
+xdb find my-docs "compression" --hybrid --where "json_extract(data, '$.category') = 'archive'"
+```
+
 ### 输出格式
 
 所有检索结果以 JSONL 输出，每行包含原始数据和系统元数据：
@@ -240,8 +276,15 @@ xdb find my-docs "compression" --match --where "json_extract(data, '$.category')
 {"id":"doc2","content":"Gzip compression...","category":"archive","_score":0.87,"_engine":"lancedb"}
 ```
 
-- `_score`: 相关度分数（语义搜索为 `1/(1+distance)`，全文检索为 FTS5 rank）
-- `_engine`: 结果来源引擎（`lancedb` 或 `sqlite`）
+混合检索（`--hybrid`）的输出额外包含 `_scores`：
+
+```json
+{"id":"doc1","content":"...","_score":0.0324,"_engine":"hybrid","_scores":{"vector":0.95,"fts":0.87,"final":0.0324,"sources":["vector","fts"],"rank":{"vector":1,"fts":1}}}
+```
+
+- `_score`: 相关度分数（语义搜索为余弦相似度，全文检索为 FTS5 rank，混合为 RRF 分数）
+- `_engine`: 结果来源引擎（`lancedb`、`sqlite` 或 `hybrid`）
+- `_scores`: 混合检索专有，包含各引擎原始分数和排名
 
 ## Policy 详解
 

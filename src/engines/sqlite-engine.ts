@@ -3,10 +3,19 @@ import { join } from 'node:path';
 import { RUNTIME_ERROR, XDBError } from '../errors.js';
 import type { PolicyConfig } from '../policy-registry.js';
 
+export interface SearchResultScores {
+  vector?: number;
+  fts?: number;
+  final?: number;
+  sources?: Array<'vector' | 'fts'>;
+  rank?: { vector?: number; fts?: number };
+}
+
 export interface SearchResult {
   data: Record<string, unknown>;
   _score?: number;
-  _engine: 'lancedb' | 'sqlite';
+  _engine: 'lancedb' | 'sqlite' | 'hybrid';
+  _scores?: SearchResultScores;
 }
 
 export class SQLiteEngine {

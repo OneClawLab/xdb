@@ -16,7 +16,7 @@ const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9
 const mockEmbedder = {
   embed: async (_text: string) => new Array(384).fill(0).map(() => Math.random()),
   embedBatch: async (texts: string[]) => texts.map(() => new Array(384).fill(0).map(() => Math.random())),
-};
+} as unknown as import('../../src/embedder.js').Embedder;
 
 // Relational policy with FTS support for --match queries
 const relationalMatchPolicy: PolicyConfig = {

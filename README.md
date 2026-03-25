@@ -38,7 +38,13 @@ xdb col init my-docs --policy hybrid/knowledge-base
 # Write data (embedding happens automatically via pai)
 echo '{"id":"doc1","content":"How to compress files with tar"}' | xdb put my-docs
 
-# Semantic search
+# Hybrid search (default for hybrid policy — runs vector + FTS with RRF fusion)
+xdb find my-docs "compress files"
+
+# Explicit hybrid search
+xdb find my-docs "compress files" --hybrid
+
+# Semantic search only
 xdb find my-docs "compress files" --similar
 
 # Full-text search
@@ -56,7 +62,7 @@ cat records.jsonl | xdb put my-docs --batch
 | Command | Description |
 |---------|-------------|
 | `xdb put <collection> [json]` | Write data (single JSON arg or JSONL via stdin) |
-| `xdb find <collection> [query]` | Search with `--similar`, `--match`, or `--where` |
+| `xdb find <collection> [query]` | Search with `--hybrid` (default), `--similar`, `--match`, or `--where` |
 | `xdb embed [text]` | Generate text embeddings via configured pai provider |
 | `xdb col init <name> --policy <p>` | Create a collection with a policy |
 | `xdb col list` | List collections with stats |

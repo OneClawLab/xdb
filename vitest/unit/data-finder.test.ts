@@ -101,6 +101,35 @@ describe('DataFinder', () => {
       await expect(finder.find('query', { limit: 10 })).rejects.toThrow(XDBError);
       await expect(finder.find('query', { limit: 10 })).rejects.toThrow(/No search intent/);
     });
+
+    it('hybrid policy with query auto-routes to hybrid (no explicit flag needed)', async () => {
+      sqliteEngine = SQLiteEngine.open(tmpDir);
+      sqliteEngine.initSchema(hybridPolicy);
+      sqliteEngine.upsert([{ id: 'r1', content: 'hello world' }]);
+
+      const embedder = createMockEmbedder();
+      const lanceEngine = createMockLanceEngine([{ id: 'r1', content: 'hello world' }]);
+      const finder = new DataFinder(hybridPolicy, embedder, lanceEngine, sqliteEngine);
+
+      // No explicit flag — should auto-hybrid because policy is hybrid and query is present
+      const results = await finder.find('hello', { limit: 10 });
+      expect(results.length).toBeGreaterThanOrEqual(1);
+      expect(results[0]!._engine).toBe('hybrid');
+    });
+
+    it('hybrid policy with --where only (no query) routes to whereOnly', async () => {
+      sqliteEngine = SQLiteEngine.open(tmpDir);
+      sqliteEngine.initSchema(hybridPolicy);
+      sqliteEngine.upsert([{ id: 'r1', content: 'hello' }, { id: 'r2', content: 'world' }]);
+
+      const embedder = createMockEmbedder();
+      const lanceEngine = createMockLanceEngine();
+      const finder = new DataFinder(hybridPolicy, embedder, lanceEngine, sqliteEngine);
+
+      const results = await finder.find(undefined, { where: "json_extract(data, '$.id') = 'r1'", limit: 10 });
+      expect(results).toHaveLength(1);
+      expect(results[0]!.data.id).toBe('r1');
+    });
   });
 
   describe('--similar (semantic search)', () => {
@@ -380,6 +409,154 @@ describe('DataFinder', () => {
       // --match should work
       const matchResults = await finder.find('hello', { match: true, limit: 10 });
       expect(matchResults.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('--hybrid (RRF fusion)', () => {
+    it('returns _engine=hybrid and _scores with sources', async () => {
+      sqliteEngine = SQLiteEngine.open(tmpDir);
+      sqliteEngine.initSchema(hybridPolicy);
+      sqliteEngine.upsert([{ id: 'r1', content: 'hello world' }]);
+
+      const embedder = createMockEmbedder();
+      const lanceEngine = createMockLanceEngine([{ id: 'r1', content: 'hello world' }]);
+      const finder = new DataFinder(hybridPolicy, embedder, lanceEngine, sqliteEngine);
+
+      const results = await finder.find('hello', { hybrid: true, limit: 10 });
+
+      expect(results.length).toBeGreaterThanOrEqual(1);
+      expect(results[0]!._engine).toBe('hybrid');
+      expect(results[0]!._score).toBeTypeOf('number');
+      expect(results[0]!._scores).toBeDefined();
+      expect(results[0]!._scores!.sources).toContain('vector');
+      expect(results[0]!._scores!.sources).toContain('fts');
+    });
+
+    it('doc appearing in both engines gets higher RRF score (bonus)', async () => {
+      sqliteEngine = SQLiteEngine.open(tmpDir);
+      sqliteEngine.initSchema(hybridPolicy);
+      // r1 appears in both; r2 only in FTS
+      sqliteEngine.upsert([
+        { id: 'r1', content: 'hello world' },
+        { id: 'r2', content: 'hello universe' },
+      ]);
+
+      const embedder = createMockEmbedder();
+      // Lance only returns r1
+      const lanceEngine = createMockLanceEngine([{ id: 'r1', content: 'hello world' }]);
+      const finder = new DataFinder(hybridPolicy, embedder, lanceEngine, sqliteEngine);
+
+      const results = await finder.find('hello', { hybrid: true, limit: 10 });
+
+      const r1 = results.find((r) => r.data.id === 'r1');
+      const r2 = results.find((r) => r.data.id === 'r2');
+      expect(r1).toBeDefined();
+      expect(r2).toBeDefined();
+      // r1 appears in both engines → higher score
+      expect(r1!._score!).toBeGreaterThan(r2!._score!);
+    });
+
+    it('respects --where filter in hybrid mode', async () => {
+      sqliteEngine = SQLiteEngine.open(tmpDir);
+      sqliteEngine.initSchema(hybridPolicy);
+      sqliteEngine.upsert([
+        { id: 'r1', content: 'hello world' },
+        { id: 'r2', content: 'hello universe' },
+      ]);
+
+      const embedder = createMockEmbedder();
+      const lanceEngine = createMockLanceEngine([{ id: 'r1', content: 'hello world' }]);
+      const finder = new DataFinder(hybridPolicy, embedder, lanceEngine, sqliteEngine);
+
+      await finder.find('hello', { hybrid: true, where: "json_extract(data, '$.id') = 'r1'", limit: 10 });
+
+      // LanceDB should have received the filter
+      expect(lanceEngine.vectorSearch).toHaveBeenCalledWith(
+        expect.any(Array),
+        expect.objectContaining({ filter: "json_extract(data, '$.id') = 'r1'" }),
+      );
+    });
+
+    it('falls back to --similar when only vector engine available', async () => {
+      const embedder = createMockEmbedder();
+      const lanceEngine = createMockLanceEngine([{ id: 'r1', content: 'hello' }]);
+      // No sqliteEngine, vectorPolicy has only similar cap
+      const finder = new DataFinder(vectorPolicy, embedder, lanceEngine);
+
+      const results = await finder.find('hello', { hybrid: true, limit: 10 });
+
+      expect(results.length).toBeGreaterThanOrEqual(1);
+      expect(results[0]!._engine).toBe('lancedb');
+    });
+
+    it('falls back to --match when only FTS engine available', async () => {
+      sqliteEngine = SQLiteEngine.open(tmpDir);
+      sqliteEngine.initSchema(matchOnlyPolicy);
+      sqliteEngine.upsert([{ id: 'r1', title: 'hello world' }]);
+
+      const embedder = createMockEmbedder();
+      // No lanceEngine, matchOnlyPolicy has only match cap
+      const finder = new DataFinder(matchOnlyPolicy, embedder, undefined, sqliteEngine);
+
+      const results = await finder.find('hello', { hybrid: true, limit: 10 });
+
+      expect(results.length).toBeGreaterThanOrEqual(1);
+      expect(results[0]!._engine).toBe('sqlite');
+    });
+
+    it('throws when no query provided and no --where', async () => {
+      sqliteEngine = SQLiteEngine.open(tmpDir);
+      sqliteEngine.initSchema(hybridPolicy);
+      const embedder = createMockEmbedder();
+      const lanceEngine = createMockLanceEngine();
+      const finder = new DataFinder(hybridPolicy, embedder, lanceEngine, sqliteEngine);
+
+      await expect(
+        finder.find(undefined, { hybrid: true, limit: 10 }),
+      ).rejects.toThrow(/Query text is required/);
+    });
+
+    it('falls back to whereOnly when no query but --where provided', async () => {
+      sqliteEngine = SQLiteEngine.open(tmpDir);
+      sqliteEngine.initSchema(hybridPolicy);
+      sqliteEngine.upsert([{ id: 'r1', content: 'hello' }]);
+
+      const embedder = createMockEmbedder();
+      const lanceEngine = createMockLanceEngine();
+      const finder = new DataFinder(hybridPolicy, embedder, lanceEngine, sqliteEngine);
+
+      const results = await finder.find(undefined, {
+        hybrid: true,
+        where: "json_extract(data, '$.id') = 'r1'",
+        limit: 10,
+      });
+
+      expect(results).toHaveLength(1);
+      expect(results[0]!.data.id).toBe('r1');
+    });
+
+    it('results are sorted by descending RRF score', async () => {
+      sqliteEngine = SQLiteEngine.open(tmpDir);
+      sqliteEngine.initSchema(hybridPolicy);
+      sqliteEngine.upsert([
+        { id: 'r1', content: 'hello world' },
+        { id: 'r2', content: 'hello universe' },
+        { id: 'r3', content: 'hello cosmos' },
+      ]);
+
+      const embedder = createMockEmbedder();
+      const lanceEngine = createMockLanceEngine([
+        { id: 'r1', content: 'hello world' },
+        { id: 'r2', content: 'hello universe' },
+        { id: 'r3', content: 'hello cosmos' },
+      ]);
+      const finder = new DataFinder(hybridPolicy, embedder, lanceEngine, sqliteEngine);
+
+      const results = await finder.find('hello', { hybrid: true, limit: 10 });
+
+      for (let i = 1; i < results.length; i++) {
+        expect(results[i - 1]!._score!).toBeGreaterThanOrEqual(results[i]!._score!);
+      }
     });
   });
 });
