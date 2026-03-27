@@ -139,6 +139,30 @@ program.version(pkg.version)
 - 顶层 catch 统一处理：`CliError` 用其 `exitCode`，其他错误用 exit 1
 - 错误信息写到 `stderr`，正常输出写到 `stdout`
 
+### 错误码约定
+
+| Code | Meaning |
+|------|---------|
+| `0` | Success |
+| `1` | Runtime error (local execution, API call, IO, etc.) |
+| `2` | Argument or usage error |
+
+### stdout / stderr Contract
+
+- `stdout`: Command result data (search results, info output, list summary)
+- `stderr`: Progress, debug, error, and warning messages
+
+### Logging
+
+**CLI Mode:**
+- Errors and warnings output to stderr
+- No log files written (unless explicitly requested via `--log-file`)
+
+**Daemon Mode:**
+- Log file: `$HOME/.local/share/<tool>/logs/<tool>.log`
+- Auto-rotate when exceeding 10000 lines
+- Format: `[TIMESTAMP] [LEVEL] message`
+
 ## import 路径
 
 - 所有本地 import 必须带 `.js` 后缀（ESM + NodeNext 要求）
