@@ -102,16 +102,12 @@ export default defineConfig({
     globals: true,
     environment: 'node',
     watch: false,
-    testTimeout: 10000,
+    testTimeout: 30000,
     fileParallelism: false,
     include: ['vitest/**/*.test.ts'],
   },
 })
 ```
-
-- `fileParallelism: false`：顺序执行，避免并发资源争用（尤其是 SQLite、文件 IO）
-- `testTimeout: 10000`：PBT 测试需要更长超时
-- `watch: false`：禁用默认 watch 模式
 
 ## CLI 入口约定（src/index.ts）
 

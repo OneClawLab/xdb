@@ -9,6 +9,7 @@
   "scripts": {
     "build": "tsup",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:manual": "vitest run --config vitest.manual.config.ts",
     "test:watch": "vitest",
     "release:local": "npm run build && npm link",
@@ -34,6 +35,7 @@
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/uuid": "^10.0.0",
+    "@vitest/coverage-v8": "^3.2.4",
     "fast-check": "^4.1.1",
     "tsup": "^8.5.0",
     "typescript": "^5.8.3",
