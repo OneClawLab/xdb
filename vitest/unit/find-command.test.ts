@@ -13,9 +13,11 @@ describe('find command', () => {
 
   beforeEach(async () => {
     tmpDir = await mkdtemp(join(tmpdir(), 'xdb-find-test-'));
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await rm(tmpDir, { recursive: true, force: true });
   });
 

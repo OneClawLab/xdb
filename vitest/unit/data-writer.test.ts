@@ -233,9 +233,10 @@ describe('DataWriter', () => {
       sqliteEngine = SQLiteEngine.open(tmpDir);
       sqliteEngine.initSchema(relationalPolicy);
       const embedder = createMockEmbedder();
-      const writer = new DataWriter(relationalPolicy, embedder, undefined, sqliteEngine);
-
-      const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      const warnings: string[] = [];
+      const writer = new DataWriter(relationalPolicy, embedder, undefined, sqliteEngine, undefined, {
+        info() {}, warn(msg) { warnings.push(msg); }, error() {},
+      });
 
       const records = [
         { id: 'ok1', value: 1 },
@@ -252,9 +253,8 @@ describe('DataWriter', () => {
       expect(result.inserted + result.updated + result.errors).toBe(5);
       expect(sqliteEngine.countRows()).toBe(3);
 
-      // Verify warnings were written to stderr
-      expect(stderrSpy).toHaveBeenCalled();
-      stderrSpy.mockRestore();
+      // Verify warnings were logged
+      expect(warnings.length).toBe(2);
     });
 
     it('stats invariant: inserted + updated + errors = total (Req 5.2)', async () => {
@@ -332,17 +332,17 @@ describe('DataWriter', () => {
 
     it('handles batch where all records are invalid', async () => {
       const embedder = createMockEmbedder();
-      const writer = new DataWriter(relationalPolicy, embedder);
-
-      const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      const warnings: string[] = [];
+      const writer = new DataWriter(relationalPolicy, embedder, undefined, undefined, undefined, {
+        info() {}, warn(msg) { warnings.push(msg); }, error() {},
+      });
 
       const result = await writer.writeBatch([null as any, 'bad' as any, 123 as any]);
 
       expect(result.errors).toBe(3);
       expect(result.inserted).toBe(0);
       expect(result.updated).toBe(0);
-
-      stderrSpy.mockRestore();
+      expect(warnings.length).toBe(3);
     });
   });
 

@@ -3,6 +3,7 @@ import type { Embedder } from './embedder.js';
 import type { LanceDBEngine } from './engines/lancedb-engine.js';
 import type { SQLiteEngine, SearchResult } from './engines/sqlite-engine.js';
 import type { PolicyConfig } from './policy-registry.js';
+import type { DataLogger } from './data-writer.js';
 
 export type { SearchResult };
 
@@ -14,13 +15,20 @@ export interface FindOptions {
   limit: number;
 }
 
+const noopLogger: DataLogger = { info() {}, warn() {}, error() {} };
+
 export class DataFinder {
+  private log: DataLogger;
+
   constructor(
     private policy: PolicyConfig,
     private embedder: Embedder,
     private lanceEngine?: LanceDBEngine,
     private sqliteEngine?: SQLiteEngine,
-  ) {}
+    logger?: DataLogger,
+  ) {
+    this.log = logger ?? noopLogger;
+  }
 
   /**
    * Execute a search based on intent flags and return results.
@@ -146,13 +154,13 @@ export class DataFinder {
     // Degraded modes
     if (hasVector && !hasFts) {
       if (explicit) {
-        process.stderr.write('Warning: FTS not available, falling back to --similar\n');
+        this.log.warn('FTS not available, falling back to --similar');
       }
       return this.handleSimilar(query, where, limit);
     }
     if (hasFts && !hasVector) {
       if (explicit) {
-        process.stderr.write('Warning: vector search not available, falling back to --match\n');
+        this.log.warn('vector search not available, falling back to --match');
       }
       return this.handleMatch(query, where, limit);
     }

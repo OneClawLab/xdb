@@ -5,6 +5,14 @@ import type { LanceDBEngine } from './engines/lancedb-engine.js';
 import type { SQLiteEngine } from './engines/sqlite-engine.js';
 import type { PolicyConfig } from './policy-registry.js';
 
+export interface DataLogger {
+  info(msg: string): void;
+  warn(msg: string): void;
+  error(msg: string): void;
+}
+
+const noopLogger: DataLogger = { info() {}, warn() {}, error() {} };
+
 export interface WriteResult {
   inserted: number;
   updated: number;
@@ -13,6 +21,7 @@ export interface WriteResult {
 
 export class DataWriter {
   private dimensionRecorded = false;
+  private log: DataLogger;
 
   constructor(
     private policy: PolicyConfig,
@@ -20,7 +29,10 @@ export class DataWriter {
     private lanceEngine?: LanceDBEngine,
     private sqliteEngine?: SQLiteEngine,
     private onEmbeddingDimension?: (dimension: number) => Promise<void>,
-  ) {}
+    logger?: DataLogger,
+  ) {
+    this.log = logger ?? noopLogger;
+  }
 
   /** Report embedding dimension on first encounter */
   private async reportDimension(vector: number[]): Promise<void> {
@@ -95,7 +107,7 @@ export class DataWriter {
         validIndices.push(i);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        process.stderr.write(`Warning: Line ${i + 1}: ${msg}\n`);
+        this.log.warn(`Line ${i + 1}: ${msg}`);
         result.errors++;
       }
     }
@@ -144,7 +156,7 @@ export class DataWriter {
       } catch (err) {
         // In batch mode, lance failures count as errors for all records
         const msg = err instanceof Error ? err.message : String(err);
-        process.stderr.write(`Warning: LanceDB batch write failed: ${msg}\n`);
+        this.log.warn(`LanceDB batch write failed: ${msg}`);
         result.errors += prepared.length;
         // If SQLite also needs writing, still attempt it
         if (needsSqlite && this.sqliteEngine) {

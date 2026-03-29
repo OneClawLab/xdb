@@ -13,9 +13,11 @@ describe('put command', () => {
 
   beforeEach(async () => {
     tmpDir = await mkdtemp(join(tmpdir(), 'xdb-put-test-'));
+    vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
   });
 
   afterEach(async () => {
+    vi.restoreAllMocks();
     await rm(tmpDir, { recursive: true, force: true });
   });
 
@@ -86,7 +88,6 @@ describe('put command', () => {
     it('throws PARAMETER_ERROR for invalid JSON positional arg', async () => {
       await createRelationalCollection('bad-json');
 
-      const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
       const exitSpy = vi.spyOn(process, 'exit').mockImplementation((code?: number | string | null) => {
         throw new Error(`process.exit(${code})`);
       });
@@ -97,7 +98,6 @@ describe('put command', () => {
       } catch (e) {
         expect((e as Error).message).toContain('Invalid JSON');
       } finally {
-        stderrSpy.mockRestore();
         exitSpy.mockRestore();
       }
     });

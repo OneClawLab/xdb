@@ -103,7 +103,11 @@ export async function executeFind(
 
     // 4. Create Embedder and DataFinder
     const embedder = new Embedder();
-    const finder = new DataFinder(policy, embedder, lanceEngine, sqliteEngine);
+    const finder = new DataFinder(policy, embedder, lanceEngine, sqliteEngine, {
+      info(msg) { process.stderr.write(`${msg}\n`); },
+      warn(msg) { process.stderr.write(`Warning: ${msg}\n`); },
+      error(msg) { process.stderr.write(`Error: ${msg}\n`); },
+    });
 
     // 5. Execute find
     const results = await finder.find(query, {
